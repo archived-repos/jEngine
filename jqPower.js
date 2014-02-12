@@ -1,10 +1,13 @@
-//	jqPower - This script enhances jQuery providing usefull common methods.
+//	jqPower - This script enhances jQuery providing useful common methods.
 //	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
-
+//	
 //	This program is free software: you can redistribute it and/or modify
 //	it under the terms of the GNU General Public License as published by
 //	the Free Software Foundation, either version 3 of the License.
 
+
+
+// ------------------------------------
 // NATIVE PROTOTYPE FUNCIONS
 // ------------------------------------
 
@@ -2002,7 +2005,3 @@ $(document).ready(function(){
             }).always(function(){ jButton.removeClass('loading'); });
         });
     });
-    
-    
-    
-    
