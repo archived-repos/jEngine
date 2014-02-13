@@ -1,3 +1,6 @@
+jPower
+=======
+
 >	jPower - This script enhances jQuery providing common useful methods.
 
 >	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
@@ -6,10 +9,9 @@
 >	it under the terms of the GNU General Public License as published by
 >	the Free Software Foundation, either version 3 of the License.
 
-jPower
 =======
 
-Requirements:
+##### Requirements
 
 jquery 2.x, developed using jquery-2.0.3.js
 
