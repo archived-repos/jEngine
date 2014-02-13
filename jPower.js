@@ -1,4 +1,4 @@
-//	jqPower - This script enhances jQuery providing useful common methods.
+//	jPower - This script enhances jQuery providing useful common methods.
 //	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 //	
 //	This program is free software: you can redistribute it and/or modify
