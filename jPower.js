@@ -1,4 +1,4 @@
-//	jPower - This script enhances jQuery providing common useful methods.
+//	jPower - This script enhances jQuery providing useful common methods.
 //	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 //	
 //	This program is free software: you can redistribute it and/or modify
@@ -15,25 +15,26 @@ function stopEvent(e) {
     if(e) e.stopped = true;
     if (e &&e.preventDefault) e.preventDefault();
     else if (window.event && window.event.returnValue) window.eventReturnValue = false;
-};
+}
 
-function triggerEvent(element,name,args){
+function triggerEvent(element,name,args,data){
   var event; // The custom event that will be created
 
   if (document.createEvent) {
     event = document.createEvent("HTMLEvents");
+    event.data = data;
     event.initEvent(name, true, true);
   } else {
     event = document.createEventObject();
-    event.eventType = name;
+    event.data = data;
   }
 
   event.eventName = name;
-  Object.keys(args).forEach(function(item){
-      event[item] = args[item];
-  });
+  if( isObject(args) ) {
+      Object.keys(args).forEach(function(key){ event[key] = args[key]; });
+  }
 
-  if (document.createEvent) {
+  if(document.createEvent) {
     element.dispatchEvent(event);
   } else {
     element.fireEvent("on" + event.eventType, event);
@@ -46,16 +47,95 @@ function triggerEvent(element,name,args){
 Event = Event || window.Event;
 
 
+function varType(obj){
+    if( obj === undefined || obj === null ) return 'undefined';
+    if( typeof(obj) == 'object' ) {
+        if( obj.jquery ) return 'jquery';
+        
+        var match;
+        
+        if( match = (''+obj.constructor).match(/^\s*function\s*(.*)\(/) ) return match[1].toLowerCase();
+        
+        if( match = (''+obj.constructor).match(/^\[object\s(.*)\]$/) ) return match[1].toLowerCase();
+        
+        alert('unknown object '+obj.constructor);
+    } else return typeof(obj);
+}
+
+
+function isObject(myVar,type){ if( typeof(myVar) == 'object' ) return varType(myVar) == (type || 'object'); else return false; }
+function isString(myVar){ return varType(myVar) == 'string'; }
+function isFunction(myVar){ return varType(myVar) == 'function'; }
+function isArray(myVar){ return varType(myVar) == 'array'; }
+function isNumber(myVar){ return varType(myVar) == 'number'; }
+
+
+
+if (!Array.prototype.clone) {
+	Array.prototype.clone = function(){
+		var dolly = [];
+		this.forEach(function(o){ if(isFunction( (o || {}).clone ) ) dolly.push(o.clone()); else dolly.push(o); });
+		return dolly;
+	};
+}
+
+if (!Object.clone) {
+	Object.clone = function(o){
+		var dolly = {};
+		if( o === undefined ) return o;
+		if( isArray(o) ) return o.clone();
+		if( o.cloneNode ) return o.cloneNode();
+		for( var key in o ) dolly[key] = isFunction( (o[key] || {}).clone ) ? o[key].clone() : o[key];
+		return dolly;
+	};
+}
+
+if (!Object.key) {
+	Object.key = function(o,key){
+		var path = key.split('.'), in_keys = o;
+        for(var k=0;k<path.length;k++) {
+           if(in_keys[path[k]] == undefined) return false;
+           in_keys = in_keys[path[k]];
+        }
+        return in_keys;
+	};
+}
+
+// function String.replaceKeys(item)
+// return: replaced '{key1} some text {key2.level2}' with item: { key1: 'value1', key2: { level2: 'value2' } }
+if (!String.prototype.replaceKeys) {
+ String.prototype.replaceKeys = function(keys,args) {
+    var value;
+    if( !args ) args = {};
+    if(!keys) return this;
+    return this.replace(/\${\s*([\w\-\_\.]+)\s*}/g, function(match, key) {
+       if(/\./.test(key)) {
+           value = Object.key(keys,key);
+           return ( value === false ) ? (args.clean?'':match) : value;
+       } else return (keys[key] === undefined)?(args.clean?'':match):keys[key];
+	});
+ };
+}
+
+if (!String.prototype.cleanKeys) {
+ String.prototype.cleanKeys = function() {
+    return this.replace(/\${\s*([\w\-\_\.]+)\s*}/g, function(match, key) { return ''; });
+ };
+}
+
+// function String.is('some text')
+if (!String.prototype.is) { String.prototype.is = function(text) { return text == this; }; }
+
 // function String.formatText(arg1,args2,...)
 // return: replaced '%n' by arg[n] string
-if (!String.prototype.formatText) {
+/*if (!String.prototype.formatText) {
  String.prototype.formatText = function() {
    var args = arguments;
    return this.replace(/{(\d+)}/g, function(match, number) { 
      return typeof args[number] != 'undefined' ? args[number] : match ;
    });
  };
-}
+}*/
 
 // function String.serialized2JSON()
 // return: { key1: 'value1', key2: 'value2' } from 'key1=value1&key2=value2'
@@ -72,25 +152,6 @@ if (!String.prototype.serialized2JSON) {
  };
 }
 
-// function String.replaceKeys(item)
-// return: replaced '{key1} some text {key2}' with item: { key1: 'value1', key2: 'value2' }
-if (!String.prototype.replaceKeys) {
- String.prototype.replaceKeys = function(keys,args) {
-	if( !args ) args = {};
-	if(!keys) return this;
-	return this.replace(/\${\s*([\w\-\_\.]+)\s*}/g, function(match, key) {
-       if(/\./.test(key)) {
-           var path = key.split('.'), in_keys = keys;
-           for(var k=0;k<path.length;k++) {
-               if(in_keys[path[k]] == undefined) return (args.clean?'':match);
-               in_keys = in_keys[path[k]];
-            }
-           return in_keys;
-       } else return (keys[key] == undefined)?(args.clean?'':match):keys[key];
-	});
- };
-}
-
 if (!String.prototype.capitalize) {
     String.prototype.capitalize = function(each_word) {
         if(each_word) {
@@ -104,49 +165,6 @@ if (!String.prototype.capitalize) {
         } else return this.charAt(0).toUpperCase() + this.slice(1).toLowerCase();
     };
 }
-
-function varType(obj){
-    if( obj == undefined ) return 'undefined';
-    if( typeof(obj) == 'object' ) {
-        if( obj.jquery ) return 'jquery';
-        
-        var match;
-        
-        if( match = (''+obj.constructor).match(/^\s*function\s*(.*)\(/) ) return match[1].toLowerCase();
-        
-        if( match = (''+obj.constructor).match(/^\[object\s(.*)\]$/) ) return match[1].toLowerCase();
-        
-        alert('unknown object '+obj.constructor);
-    } else return typeof(obj);
-}
-
-if (!String.prototype.is) {
-    String.prototype.is = function(){
-        if( arguments.length == 0 ) {
-            return ( !!this.length && this != 'undefined' );
-        } else if( arguments.length == 1 ) {
-            if( arguments[0] == undefined ) return this == 'undefined';
-            else return this == arguments[0];
-        }
-        return false;
-    }
-}
-
-if (!String.prototype.clone) {
-	Array.prototype.clone = function(){
-		var dolly = []
-		this.forEach(function(o){ dolly.push(o); });
-		return dolly;
-	}
-}
-
-
-function isObject(myVar,type){ if( typeof(myVar) == 'object' ) return varType(myVar) == (type || 'object'); else return false; }
-function isString(myVar){ return varType(myVar) == 'string'; }
-function isFunction(myVar){ return varType(myVar) == 'function'; }
-function isArray(myVar){ return varType(myVar) == 'array'; }
-function isNumber(myVar){ return varType(myVar) == 'number'; }
-
 
 if (!String.prototype.toDate) {
     String.prototype.toDate = function(milisecs){
@@ -165,6 +183,7 @@ if (!String.prototype.toDate) {
         return false;
     }
 }
+
 
 function compareDates(date1,date2){
     if( isString(date1) && isString(date2) ) {
@@ -262,14 +281,19 @@ var $cookies = new (function(){
     }
 })();
 
+
 // ------------------------------------------------------
 //      Third party crypt functions
 // ------------------------------------------------------
 
-	//	About base64.js (window.B64)
+	//	About base64.js (window.base64)
 	//	-	Copyright Vassilis Petroulias [DRDigit]
 	//	-	Licensed under the Apache License, Version 2.0 (the "License");
-	window.B64={alphabet:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",lookup:null,ie:/MSIE /.test(navigator.userAgent),ieo:/MSIE [67]/.test(navigator.userAgent),encode:function(e){var t=B64.toUtf8(e),n=-1,r=t.length,i,s,o,u=[,,,];if(B64.ie){var a=[];while(++n<r){i=t[n];s=t[++n];u[0]=i>>2;u[1]=(i&3)<<4|s>>4;if(isNaN(s))u[2]=u[3]=64;else{o=t[++n];u[2]=(s&15)<<2|o>>6;u[3]=isNaN(o)?64:o&63}a.push(B64.alphabet.charAt(u[0]),B64.alphabet.charAt(u[1]),B64.alphabet.charAt(u[2]),B64.alphabet.charAt(u[3]))}return a.join("")}else{var a="";while(++n<r){i=t[n];s=t[++n];u[0]=i>>2;u[1]=(i&3)<<4|s>>4;if(isNaN(s))u[2]=u[3]=64;else{o=t[++n];u[2]=(s&15)<<2|o>>6;u[3]=isNaN(o)?64:o&63}a+=B64.alphabet[u[0]]+B64.alphabet[u[1]]+B64.alphabet[u[2]]+B64.alphabet[u[3]]}return a}},decode:function(e){if(e.length%4)throw new Error("InvalidCharacterError: 'B64.decode' failed: The string to be decoded is not correctly encoded.");var t=B64.fromUtf8(e),n=0,r=t.length;if(B64.ieo){var i=[];while(n<r){if(t[n]<128)i.push(String.fromCharCode(t[n++]));else if(t[n]>191&&t[n]<224)i.push(String.fromCharCode((t[n++]&31)<<6|t[n++]&63));else i.push(String.fromCharCode((t[n++]&15)<<12|(t[n++]&63)<<6|t[n++]&63))}return i.join("")}else{var i="";while(n<r){if(t[n]<128)i+=String.fromCharCode(t[n++]);else if(t[n]>191&&t[n]<224)i+=String.fromCharCode((t[n++]&31)<<6|t[n++]&63);else i+=String.fromCharCode((t[n++]&15)<<12|(t[n++]&63)<<6|t[n++]&63)}return i}},toUtf8:function(e){var t=-1,n=e.length,r,i=[];if(/^[\x00-\x7f]*$/.test(e))while(++t<n)i.push(e.charCodeAt(t));else while(++t<n){r=e.charCodeAt(t);if(r<128)i.push(r);else if(r<2048)i.push(r>>6|192,r&63|128);else i.push(r>>12|224,r>>6&63|128,r&63|128)}return i},fromUtf8:function(e){var t=-1,n,r=[],i=[,,,];if(!B64.lookup){n=B64.alphabet.length;B64.lookup={};while(++t<n)B64.lookup[B64.alphabet.charAt(t)]=t;t=-1}n=e.length;while(++t<n){i[0]=B64.lookup[e.charAt(t)];i[1]=B64.lookup[e.charAt(++t)];r.push(i[0]<<2|i[1]>>4);i[2]=B64.lookup[e.charAt(++t)];if(i[2]==64)break;r.push((i[1]&15)<<4|i[2]>>2);i[3]=B64.lookup[e.charAt(++t)];if(i[3]==64)break;r.push((i[2]&3)<<6|i[3])}return r}}
+	window.B64={alphabet:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",lookup:null,ie:/MSIE /.test(navigator.userAgent),ieo:/MSIE [67]/.test(navigator.userAgent),encode:function(e){var t=B64.toUtf8(e),n=-1,r=t.length,i,s,o,u=[,,,];if(B64.ie){var a=[];while(++n<r){i=t[n];s=t[++n];u[0]=i>>2;u[1]=(i&3)<<4|s>>4;if(isNaN(s))u[2]=u[3]=64;else{o=t[++n];u[2]=(s&15)<<2|o>>6;u[3]=isNaN(o)?64:o&63}a.push(B64.alphabet.charAt(u[0]),B64.alphabet.charAt(u[1]),B64.alphabet.charAt(u[2]),B64.alphabet.charAt(u[3]))}return a.join("")}else{var a="";while(++n<r){i=t[n];s=t[++n];u[0]=i>>2;u[1]=(i&3)<<4|s>>4;if(isNaN(s))u[2]=u[3]=64;else{o=t[++n];u[2]=(s&15)<<2|o>>6;u[3]=isNaN(o)?64:o&63}a+=B64.alphabet[u[0]]+B64.alphabet[u[1]]+B64.alphabet[u[2]]+B64.alphabet[u[3]]}return a}},decode:function(e){if(e.length%4)throw new Error("InvalidCharacterError: 'B64.decode' failed: The string to be decoded is not correctly encoded.");var t=B64.fromUtf8(e),n=0,r=t.length;if(B64.ieo){var i=[];while(n<r){if(t[n]<128)i.push(String.fromCharCode(t[n++]));else if(t[n]>191&&t[n]<224)i.push(String.fromCharCode((t[n++]&31)<<6|t[n++]&63));else i.push(String.fromCharCode((t[n++]&15)<<12|(t[n++]&63)<<6|t[n++]&63))}return i.join("")}else{var i="";while(n<r){if(t[n]<128)i+=String.fromCharCode(t[n++]);else if(t[n]>191&&t[n]<224)i+=String.fromCharCode((t[n++]&31)<<6|t[n++]&63);else i+=String.fromCharCode((t[n++]&15)<<12|(t[n++]&63)<<6|t[n++]&63)}return i}},toUtf8:function(e){var t=-1,n=e.length,r,i=[];if(/^[\x00-\x7f]*$/.test(e))while(++t<n)i.push(e.charCodeAt(t));else while(++t<n){r=e.charCodeAt(t);if(r<128)i.push(r);else if(r<2048)i.push(r>>6|192,r&63|128);else i.push(r>>12|224,r>>6&63|128,r&63|128)}return i},fromUtf8:function(e){var t=-1,n,r=[],i=[,,,];if(!B64.lookup){n=B64.alphabet.length;B64.lookup={};while(++t<n)B64.lookup[B64.alphabet.charAt(t)]=t;t=-1}n=e.length;while(++t<n){i[0]=B64.lookup[e.charAt(t)];i[1]=B64.lookup[e.charAt(++t)];r.push(i[0]<<2|i[1]>>4);i[2]=B64.lookup[e.charAt(++t)];if(i[2]==64)break;r.push((i[1]&15)<<4|i[2]>>2);i[3]=B64.lookup[e.charAt(++t)];if(i[3]==64)break;r.push((i[2]&3)<<6|i[3])}return r}};
+	
+	//	About base32.js (window.B32)
+	//  -   Copyright (C) 2011 by Isaac Wolkerstorfer
+	(function(){function r(){var t=0;var n=0;this.output="";this.readByte=function(r){if(typeof r=="string")r=r.charCodeAt(0);if(t<0){n|=r>>-t}else{n=r<<t&248}if(t>3){t-=8;return 1}if(t<4){this.output+=e[n>>3];t+=5}return 0};this.finish=function(r){var i=this.output+(t<0?e[n>>3]:"")+(r?"$":"");this.output="";return i}}function i(){var t=0;var r=0;this.output="";this.readChar=function(e){if(typeof e!="string"){if(typeof e=="number"){e=String.fromCharCode(e)}}e=e.toLowerCase();var i=n()[e];if(typeof i=="undefined"){return}i<<=3;r|=i>>>t;t+=5;if(t>=8){this.output+=String.fromCharCode(r);t-=8;if(t>0)r=i<<5-t&255;else r=0}};this.finish=function(n){var r=this.output+(t<0?e[bits>>3]:"")+(n?"$":"");this.output="";return r}}function s(e){var t=new r;var n=t.update(e,true);return n}function o(e){var t=new i;var n=t.update(e,true);return n}function f(e,t){if(typeof u=="undefined")u=require("crypto");var n=u.createHash("sha1");n.digest=function(e){return function(){return s(e.call(this,"binary"))}}(n.digest);if(t){if(typeof e=="string"||Buffer.isBuffer(e)){try{return t(null,f(e))}catch(r){return t(r,null)}}if(!typeof e.on=="function")return t({message:"Not a stream!"});e.on("data",function(e){n.update(e)});e.on("end",function(){t(null,n.digest())});return}if(e){return n.update(e).digest()}return n}var e="0123456789abcdefghjkmnpqrtuvwxyz";var t={o:0,i:1,l:1,s:5};var n=function(){var r={};for(var i=0;i<e.length;i++){r[e[i]]=i}for(var s in t){if(!t.hasOwnProperty(s))continue;r[s]=r[""+t[s]]}n=function(){return r};return r};r.prototype.update=function(e,t){for(var n=0;n<e.length;){n+=this.readByte(e[n])}var r=this.output;this.output="";if(t){r+=this.finish()}return r};i.prototype.update=function(e,t){for(var n=0;n<e.length;n++){this.readChar(e[n])}var r=this.output;this.output="";if(t){r+=this.finish()}return r};var u,a;f.file=function(e,t){if(e=="-"){process.stdin.resume();return f(process.stdin,t)}if(typeof a=="undefined")a=require("fs");return a.stat(e,function(n,r){if(n)return t(n,null);if(r.isDirectory())return t({dir:true,message:"Is a directory"});return f(require("fs").createReadStream(e),t)})};var l={Decoder:i,Encoder:r,encode:s,decode:o,sha1:f};if(typeof window!=="undefined"){window.B32=l}if(typeof module!=="undefined"&&module.exports){module.exports=l}})();
 
 	//	About CryptoJS.SHA512()
 	//	-	Copyright (c) 2009-2013 Jeff Mott
@@ -348,9 +372,6 @@ var $cookies = new (function(){
                             }
                         });
                         break;
-                    /*case 'table':
-                        return $(this).find('tr').getKeysList();
-                        break;*/
                     default:
                         jThis.find('[data-key]').each(function(){
                             var jThis = $(this);
@@ -398,7 +419,7 @@ var $cookies = new (function(){
         if( isFunction(aniClass) ) callback = aniClass;
         if( !isString(aniClass) ) {
             callback = aniClass;
-            aniClass = jThis.attr('ani-show') || 'fadeIn';
+            aniClass = jThis.attr('data-ani-show') || 'fadeIn';
         }
         
         jThis.removeClass('hide').addClass(aniClass);
@@ -427,7 +448,7 @@ var $cookies = new (function(){
         if( isFunction(aniClass) ) callback = aniClass;
         if( !isString(aniClass) ) {
             callback = aniClass;
-            aniClass = jThis.attr('ani-hide') || 'fadeOut';
+            aniClass = jThis.attr('data-ani-hide') || 'fadeOut';
         }
         
         jThis.addClass(aniClass);
@@ -462,7 +483,7 @@ var $cookies = new (function(){
         
         $.ajax({
             type: "GET",
-            url: '/base/model/i18n.json'+params,
+            url: '/-/model/i18n.json'+params,
             dataType: 'text',
             global: false, async: isFunction(callback),
             success: function(data){
@@ -512,27 +533,172 @@ var $cookies = new (function(){
 //      $html
 // ------------------------------------------------------
 
+
+if( !Element.prototype.matchesSelector ) {
+    Element.prototype.matchesSelector = Element.prototype.webkitMatchesSelector ||
+                                        Element.prototype.mozMatchesSelector ||
+                                        Element.prototype.msMatchesSelector ||
+                                        Element.prototype.oMatchesSelector;
+}
+
+if( !Element.prototype.data ) {
+    Element.prototype.data = function(key,value){
+        if( isString(key) ) {
+            if( isString(value) ) {
+                
+                if( this.getAttribute('data-'+key) != null ) this.setAttribute('data-'+key,value);
+                else {
+                    if( this.dataset !== undefined ) this.dataset[key] = value;
+                    else this.setAttribute('data-'+key,value);
+                }
+                return this;
+                
+            } else return this.getAttribute('data-'+key) || ( this.dataset ? this.dataset[key] : false );
+        }
+        return this;
+    }
+}
+
+
 (function( $ ){
-    var jBody = $(document.body);
     
-    var htmlHandler = new (function(){
+    function listDOM(elems){
+        var list = this;
+        
+        if( varType(elems).is('array') ) {
+            elems.forEach(function(elem){ list.push(item); });
+        } else if( varType(elems).is('nodelist') ) {
+            (function(){
+                var i, length = elems.length;
+                for( i=0; i<length; i++ ) list.push(elems.item(i));
+            })();
+        }
+    }
+    listDOM.prototype = new Array();
+    
+    listDOM.prototype.each = function(each){
+        Array.prototype.forEach.call(this,each);
+        return this;
+    }
+    
+    listDOM.prototype.find = function(selector){
+        var elems = [];
+        
+        Array.prototype.forEach.call(this,function(elem){
+            elems = elems.concat( Array.prototype.slice.call( elem.querySelectorAll(selector) ) );
+        });
+        
+        return new listDOM(elems);
+    }
+    
+    listDOM.prototype.filter = function(selector){
+        var elems = [];
+        
+        Array.prototype.forEach.call(this,function(elem){
+            if( Element.prototype.matchesSelector.call(elem,selector) ) elems.push(item);
+        });
+        
+        return new listDOM(elems);
+    }
+    
+    listDOM.prototype.data = function(key,value){
+        var elem;
+        
+        if( isString(key) ) {
+        
+            if( !isString(value) ) {
+                
+                return this[0].data(key);
+                /*if( elem = this[0] ) {
+                    if( elem.dataset != undefined ) return elem.getAttribute('data-'+key);
+                    else return elem.dataset[key];
+                }*/
+            } else {
+                Array.prototype.forEach.call(this,function(elem){
+                    elem.data(key,value);
+                    /*if( elem.getAttribute('data-'+key) ) elem.setAttribute('data-'+key,value);
+                    else {
+                        if( elem.dataset !== undefined ) elem.dataset[key] = value;
+                        else elem.setAttribute('data-'+key,value);
+                    }*/
+                });
+                return this;
+            }
+        }
+        return this;
+    }
+    
+    listDOM.event_elements = {};
+    
+    listDOM.prototype.on = function(event,handler){
+        
+        if( isString(event) ) {
+            if(isFunction(handler)) {
+                var originalHandler = handler;
+                handler = function(e){
+                    //this.originalHandler = originalHandler;
+                    originalHandler.apply(e.target,[e].concat(e.data));
+                }
+                
+                Array.prototype.forEach.call(this,function(elem){
+                    
+                    if (elem.addEventListener)  { // W3C DOM
+                        elem.addEventListener(event,handler,false);
+                    } else if (elem.attachEvent) { // IE DOM
+                        elem.attachEvent("on"+event, handler);
+                    } else throw 'No es posible añadir evento';
+                    
+                    if(!elem.listeners) elem.listeners = {};
+                    if( !elem.listeners[event] ) elem.listeners[event] = [];
+                    
+                    elem.listeners[event].push(handler);
+                });
+            } else if( handler === false ) {
+                Array.prototype.forEach.call(this,function(elem){
+                    if(elem.listeners) {
+                        if( elem.listeners[event] ) {
+                            var handlers = elem.listeners[event];
+                            while( handler = handlers.pop() ) {
+                                if (elem.removeEventListener) elem.removeEventListener (event, handler, false);  // all browsers except IE before version 9
+                                else if (elem.detachEvent) elem.detachEvent ('on'+event, handler);   // IE before version 9
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        return this;
+    }
+    
+    listDOM.prototype.off = function(event){ return this.on(event,false); }
+    
+    listDOM.prototype.trigger = function(event,args){
+        Array.prototype.forEach.call(this,function(elem){
+            triggerEvent(elem,event,false,args);
+        });
+    }
+    
+    
+    var htmlHandler = function(){};
+    
+    (function(){
         var templates = {};
         
-        this.replaceKeys = function(text,keys) {
+        this.find = function(selector){ return new listDOM(document.querySelectorAll(selector)); };
+        
+        this.replaceKeys = function(text,keys,args) {
             //console.log('$html.replaceKeys('+isObject(htmlHandler.globalKeys)+') '+JSON.stringify(htmlHandler.globalKeys));
             if( !isString(text) ) return text;
-            if( isObject(keys) ) text = text.replaceKeys(keys);
+            if( isObject(keys) ) text = text.replaceKeys(keys,args);
             if( isArray(keys) ) {
-                keys.forEach(function(k){ if( isObject(k) ) { text = text.replaceKeys(k); } });
+                keys.forEach(function(k){ if( isObject(k) ) { text = text.replaceKeys(k,args); } });
             }
             
             return text;
-        }
+        };
         
         this.template = function(name,args){
-            /*var name, args = {};
-            if( !arguments.length ) return '';
-            name = arguments[0];*/
             
             if( isString(args) ) {
                 templates[name] = args;
@@ -543,27 +709,45 @@ var $cookies = new (function(){
                 else if( !isObject(args) ) args = {};
                 
                 if( templates[name] ) {
-                    var tmpl = $html.replaceKeys(templates[name],args.replaceKeys).i18n();
+                    var tmpl = $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n();
                     
                     if( isFunction(args.done) ) args.done.apply(null,[tmpl]);
                     return tmpl;
                 } else {
                     $.ajax({
                         type: "GET",
-                        url: '/templates/'+name+'.tmpl',
+                        url: '/templates/'+name+'.html',
                         dataType: 'text',
                         global: false, async: !!args.async,
                         success: function(tmpl){
-                            var jTmpl = $('<div>'+tmpl+'</div>');
-                            jTmpl.extractTemplates();
-                            templates[name] = jTmpl.html();
-                            if( isFunction(args.done) ) args.done.apply(null,[ $html.replaceKeys(templates[name],args.replaceKeys).i18n() ]);
+                            
+                            //var jTmpl = $('<div>'+tmpl+'</div>');
+                            //jTmpl.extractTemplates();
+                            //templates[name] = jTmpl.html();
+                            
+                            s_tmpl = tmpl.split(/<\/template>/);
+                            tmpl = '';
+                            s_tmpl.forEach(function(track){
+                            	if( /<template\s+name="([\w\-\_\/]+)">/.test(track) ) {
+                            		
+                            		tmpl += track.replace(/([\w\W]*)<template\s+name="([\w\-\_\/]+)">([\w\W]*)/,function(match,track,name,tmpl){
+                            			//console.log('found template `'+name+'`\n'+tmpl);
+                            			templates[name] = tmpl;
+                            			return track;
+                            		});
+                            		
+                            	} else tmpl += track;
+                            });
+                            
+                            templates[name] = tmpl;
+                            
+                            if( isFunction(args.done) ) args.done.apply(null,[ $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n() ]);
                         }
                     }).fail(function(jqXHR, textStatus, errorThrown){
                         if( isFunction(args.done) ) args.done.apply(null,[ '<div class="error">['+jqXHR.status+'] '+textStatus+'</div>' ]);
                     });
                     if( !args.async ) {
-                        if( templates[name] ) return $html.replaceKeys(templates[name],args.replaceKeys).i18n();
+                        if( templates[name] ) return $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n();
                         else return '<div class="error">404</div>';
                     }
                 }
@@ -571,10 +755,14 @@ var $cookies = new (function(){
             return '';
         };
         
+        this.jTemplate = function(name,args){
+            return $( htmlHandler.template(name,args) );
+        };
+        
         this.templateLoaded = function(name) {
             if( isString(name) ) return templates[name] ? true : false;
             return false;
-        }
+        };
         
         var render_plugins = {};
         this.renderPlugin = function(selector,run) {
@@ -589,12 +777,17 @@ var $cookies = new (function(){
                     render_plugins[selector].apply(this,[args]);
                 });
             });
-        }
+        };
         
         var plugins = {};
         this.plugin = function(selector,run) {
             if( isString(selector) && isFunction(run) ) {
                 plugins[selector] = run;
+                if( typeof $doc != 'undefined' ) {
+                    console.log('html.plugin '+selector);
+                    $(document).find(selector).each(function(){ run.apply(this,[]); });
+                }
+                //$(document).on('powered',function(){ run.apply($(document),[]); });
             }
         };
         
@@ -604,9 +797,9 @@ var $cookies = new (function(){
                     plugins[selector].apply(this,[args]);
                 });
             });
-        }
+        };
         
-    })();
+    }).apply(htmlHandler);
     
     $.fn.extractTemplates = function(){
         $(this).find('script[type=\'text/x-template\'][name]').each(function(){
@@ -619,7 +812,7 @@ var $cookies = new (function(){
             $html.template( jThis.attr('name'), jThis.html() );
             jThis.remove();
         });
-    } 
+    }
     
     $.fn.initDOM = function(args){
         var jRender = $(this);
@@ -634,24 +827,22 @@ var $cookies = new (function(){
         jRender.find('form').on('submit',function(e){
             if( !this.checkValidity || this.checkValidity() ) {
                 var jForm = $(this), handler_name;
-                if( handler_name = jForm.attr('on-submit') ) {
-                    jForm.find('[text-on-submit]').each(function(){
-                        jElem = $(this);
-                        if( jElem.prop('nodeName') == 'INPUT' )
-                            jElem.data('default-text',jElem.val()).val(jElem.attr('text-on-submit')).attr('disabled','disabled').addClass('working');
-                        else 
-                            jElem.data('default-text',jElem.text()).text(jElem.attr('text-on-submit')).attr('disabled','disabled').addClass('working');
-                    });
-                    jForm.on('form.submit-end',function(){
-                        jForm.find('[text-on-submit]').each(function(){
-                            if( jElem.prop('nodeName') == 'INPUT' ) $(this).val(jElem.data('default-text')).removeAttr('disabled').removeClass('working');    
-                            else $(this).text(jElem.data('default-text')).removeAttr('disabled').removeClass('working');
-                        });
-                    });
+                if( handler_name = jForm.attr('data-on-submit') ) {
+                    
                     stopEvent(e);
                     $doc.runOn('submit',handler_name,jForm);
-                }
-                jForm.trigger('form.submit');
+                    
+                } else if( jForm.data('ajax') ) stopEvent(e);
+                
+                jForm.find('.submitting-disable').attr('disabled','disabled');
+                jForm.addClass('submitting');
+                
+                jForm.on('form.submit-end',function(e){
+                    jForm.removeClass('submitting');
+                    jForm.find('.submitting-disable').attr('disabled','disabled');
+                });
+                
+                jForm.trigger('form.submit',[e]);
                 
             } else $(this).trigger('form.invalid');
         });
@@ -686,7 +877,7 @@ var $cookies = new (function(){
         jTarget.addClass('loading');
         var version = (parseInt(jTarget.data('version')) || 0) + 1;
         jTarget.data('version',version);
-        $.post(href).done(function(data){
+        $.ajax(href,{ headers: { 'X-View': 'HTMLHttpRequest' } }).done(function(data){
             if( parseInt(jTarget.data('version')) == version ) {
                 jTarget.render(data,args);
             }
@@ -729,19 +920,19 @@ var $cookies = new (function(){
         if(!args) args = {};
         else if( isString(args) ) args = { tmpl: args };
         
-        if( !htmlHandler.jModals ) {
+        if( !$(document.body).children('modals').length ) {
             htmlHandler.jModals = $('<modals>');
-            jBody.append(htmlHandler.jModals);
+            $(document.body).append(htmlHandler.jModals);
         }
         
-        var jModalScreen = $('<div class="modal-screen">');
+        var jModalScreen = $('<div class="modal-screen '+args.mode+'">');
         htmlHandler.jModals.append(jModalScreen);
         if( !$(document.body).hasClass('modals-active') ) $(document.body).addClass('modals-active');
         
             var jModalBG = $('<div class="modal-bg '+( args.classBG || 'bg-black-05' )+' animated t-0_25s fadeIn">');
             jModalScreen.append(jModalBG);
             
-            var jModalWrapper = $('<div class="modal-wrapper animated t-0_25s fadeInDown" ani-hide="fadeOutUp">');
+            var jModalWrapper = $('<div class="modal-wrapper animated t-0_25s fadeInDown" data-ani-hide="fadeOutUp">');
             jModalScreen.append(jModalWrapper);
             
                 var jModal = $('<div class="modal-box animated t-0_4s border-radius">');
@@ -768,6 +959,8 @@ var $cookies = new (function(){
             jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, done: function(){
             	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
             } });
+        } else if( args.iframe ) {
+            jModalBody.html('<iframe style="width: 100%; height: 100%;" src="'+args.iframe+'" frameborder="0"></iframe>');
         }
         
         jModalScreen.on('modal.close',function(){
@@ -775,6 +968,12 @@ var $cookies = new (function(){
             jModalBG.aniHide(function(){
                 jModalScreen.remove();
                 if( !$('modals').children().length ) $(document.body).removeClass('modals-active');
+                delete jModalBody;
+                delete jModalHeader;
+                delete jModal;
+                delete jModalWrapper;
+                delete jModalBG;
+                delete this;
             });
             if( isFunction(args.close) ) args.close.apply(jModal.get(0),[jModal]);
         });
@@ -800,11 +999,10 @@ var $cookies = new (function(){
     
 })( jQuery );
 
-$(function(){
-    $doc.click('[modal-href]',function(){
+$(document).on('powered',function(){
+    $doc.click('[data-modal-href]',function(){
         var jURL = $(this);
-        
-        var jModal = $html.modal({ url: jURL.attr('modal-href') });
+        var jModal = $html.modal({ url: jURL.attr('data-modal-href') });
     });
 });
 
@@ -816,7 +1014,7 @@ $(function(){
     
     var user = new (function(){
         this._data = false;
-        this.url = '/base/model/user.json';
+        this.url = '/-/model/user.json';
         this.on = {};
         
         this.question = function(){
@@ -903,6 +1101,8 @@ $(function(){
         
     })();
     
+    $(document).on('user.logged-required',user.logOut);
+    
     window.$user = user;
 
 })( jQuery );
@@ -937,19 +1137,19 @@ $(function(){
     model_event.on('new',function(e,model,item){
         var action = model.on('new',model.name);
         if( isFunction(action) ) actions.apply(_model(table),[item]);
-        $(document).find('[model-name='+model.name+']').trigger('model.new',[item]);
+        $(document).find('[model-name=\''+model.name+'\']').trigger('model.new',[item]);
     }); 
        
     model_event.on('updated',function(e,model,item){
         var action = model.on('updated',model.name);
         if( isFunction(action) ) actions.apply(_model(table),[item]);
-        $(document).find('[model-name='+model.name+']').trigger('model.updated',[item]);
+        $(document).find('[model-name=\''+model.name+'\']').trigger('model.updated',[item]);
     }); 
     
     model_event.on('status',function(e,model,item){
         var action = model.on('status',model.name);
         if( isFunction(action) ) actions.apply(_model(table),[item]);
-        $(document).find('[model-name='+model.name+']').trigger('model.status',[item]);
+        $(document).find('[model-name=\''+model.name+'\']').trigger('model.status',[item]);
     }); 
     
     modelHandler.prototype.status = function(id,status){
@@ -983,10 +1183,10 @@ $(function(){
 		                dataType: 'json', contentType: 'application/json'
 		            }).done(function(){
 		            	model.status(id,(status == 'deleted')?'':'deleted');
-		            }).fail(function(){
-		            	alert('wtf!!');
-		            	model.status(id,'');
-		            });
+		            }).fail(function(jqXHR, textStatus, errorThrown){
+                        if( jqXHR.status == 401 || jqXHR.status == 403 ) $(document).trigger('user.logged-required',user.logOut);
+                        else model.status(id,'');
+                    });
 	    		}
         	}
         	
@@ -1063,6 +1263,8 @@ $(function(){
                         } else if( isFunction(args.done) ) args.done.apply(model,[core_models[name]]);
                     }
                 }
+            }).fail(function(jqXHR, textStatus, errorThrown){
+                if( jqXHR.status == 401 || jqXHR.status == 403 ) $(document).trigger('user.logged-required',user.logOut);
             });
             console.log('loaded '+name+'.json');
         } else if( args.async ) {
@@ -1217,11 +1419,13 @@ $(function(){
             	
             	if( isFunction(args.done) ) args.done.apply(model,[response]);
             }
+        }).fail(function(jqXHR, textStatus, errorThrown){
+            if( jqXHR.status == 401 || jqXHR.status == 403 ) $(document).trigger('user.logged-required',user.logOut);
         });
         return jqXHR;
     }
     
-    _model = function(name){ return new modelHandler(name); }
+    _model = function(name,args){ return new modelHandler(name,args); }
     
     _model.require = function(selectors,args){
     	var model = this;
@@ -1304,7 +1508,7 @@ $(function(){
         
         cmd = cmds.split('|');
         
-        if( match = cmd[0].match(/([\.\-\_\w]+)\sin\s([\-\_\.\w]+)/) ) {
+        if( match = cmd[0].match(/([\/\.\-\_\w]+)\sin\s([\/\-\_\.\w]+)/) ) {
         	var items_path = match[2].split('.'), path_step;
             var model = $model(items_path.shift());
             var item_name = match[1];
@@ -1362,51 +1566,44 @@ $(function(){
         }
     });
     
-    $doc.click('[model-action]',function(){
-        var jClicked = $(this), action = jClicked.attr('model-action'), match;
-        var patt = /^\s*(([\-\_\w]+)(\/([\-\_\w]+))?\.)?([\-\_\w]+)\s*$/;
-        
-        //  match[0] ( original expression ),   match[1] ( model/id ), match[2] ( model name ), match[3] ( noise -consecuence of optional model/id- )
-        //  match[4] ( id ), match[5] ( action name )
-        
-        if( match = action.match(patt) ) {
-            var action_name = match[5], model_name = match[2], model_id = match[4];
+    $(document).on('powered',function(){
+        $doc.click('[model-action]',function(){
+            var jClicked = $(this), action = jClicked.attr('model-action'), match;
+            var patt = /^\s*(([\-\_\w]+)(\/([\-\_\w]+))?\.)?([\-\_\w]+)\s*$/;
             
-            if( action_name ) {
-                if( !model_name ) {
-                    if( jClicked.attr('model-name') ) model_name = jClicked.attr('model-name');
-                    else if( jClicked.attr('model-item') || jClicked.data('model-item') ) {
-                        //console.log('model-item attr:'+jClicked.attr('model-item')+', data:'+jClicked.data('model-item'));
-                        
-                        var model_item;
-                        if( model_item = ( jClicked.attr('model-item') || jClicked.data('model-item') ).match(/^\s*([\-\_\w]+)(\/([\-\_\w]+))\s*$/) ) {
-                            if( model_item[1] ) model_name = model_item[1];
-                            if( model_item[3] ) model_id = model_item[3];
-                        }
-                    } else {
-                        var jTmp = jClicked;
-                        while( jTmp.length ) {
-                            if( jTmp.attr('model-item') || jTmp.data('model-item') ) {
-                                //console.log('model-item attr:'+jTmp.attr('model-item')+', data:'+jTmp.data('model-item'));
-                                var model_item;
-                                if( model_item = ( jTmp.attr('model-item') || jTmp.data('model-item') ).match(/^\s*([\-\_\w]+)(\/([\-\_\w]+))\s*$/) ) {
-                                    if( model_item[1] ) model_name = model_item[1];
-                                    if( model_item[3] ) model_id = model_item[3];
-                                }
+            if( match = action.match(patt) ) {
+                var action_name = match[5], model_name = match[2], model_id = match[4];
+                
+                if( action_name ) {
+                    if( !model_name ) {
+                        if( jClicked.attr('model-name') ) model_name = jClicked.attr('model-name');
+                        else if( jClicked.attr('model-item') || jClicked.data('model-item') ) {
+                            
+                            var model_item; //  /^\s*([\-\_\w]+)(\/([\-\_\w]+))\s*$/
+                            if( model_item = ( jClicked.attr('model-item') || jClicked.data('model-item') ).match(/^\s*(.+)\/(.+)\s*$/) ) {
+                                if( model_item[1] ) model_name = model_item[1];
+                                if( model_item[2] ) model_id = model_item[2];
                             }
-                            jTmp = jTmp.parent();
+                        } else {
+                            var jTmp = jClicked;
+                            while( jTmp.length ) {
+                                if( jTmp.attr('model-item') || jTmp.data('model-item') ) {
+                                    var model_item;
+                                    if( model_item = ( jTmp.attr('model-item') || jTmp.data('model-item') ).match(/^\s*(.+)\/(.+)\s*$/) ) {
+                                        if( model_item[1] ) model_name = model_item[1];
+                                        if( model_item[2] ) model_id = model_item[2];
+                                    }
+                                }
+                                jTmp = jTmp.parent();
+                            }
                         }
                     }
-                }
-                
-                if( model_name ) {
-                    //console.log('action: '+action_name+', model: '+model_name+', id: '+model_id)
-                    $model(model_name).action(action_name,[model_id]);
+                    
+                    if( model_name ) $model(model_name).action(action_name,[model_id]);
                 }
             }
-        }
+        });
     });
-    
 });
 
 // ------------------------------------------------------
@@ -1449,9 +1646,9 @@ $(function(){
 
     // HTML PLUGIN
 
-    $html.plugin('[run-gear]',function(){
-        $gears.run($(this).attr('run-gear'));
-        console.log('[run-gear='+$(this).attr('run-gear')+']');
+    $html.plugin('[data-gear]',function(){
+        $gears.run($(this).attr('data-gear'));
+        console.log('[run-gear='+$(this).attr('data-gear')+']');
     });
 
 // ------------------------------------------------------
@@ -1460,29 +1657,29 @@ $(function(){
 
 (function( $ ){
 
-    var appHandler = new (function(){
-        var app = this;
+    var docHandler = new (function(){
+        var doc = this;
         
         this.fn = {};
         this.runFn = function(name) {
-            if( isFunction(app.fn[name]) ) app.fn[name]();
+            if( isFunction(doc.fn[name]) ) doc.fn[name]();
         };
         this.setFn = function(name,action) {
-            if( isString(name) && isFunction(action) ) app.fn[name] = action;
+            if( isString(name) && isFunction(action) ) doc.fn[name] = action;
         };
         
         this.on = {};
         
         this.runOn = function(event,name,jCaller,args) {
             if( !args ) args = [];
-            if( isString(event) && app.on[event]) {
-                if( isFunction(app.on[event][name]) ) app.on[event][name].apply(jCaller.get(0),args);
+            if( isString(event) && doc.on[event]) {
+                if( isFunction(doc.on[event][name]) ) doc.on[event][name].apply(jCaller.get(0),args);
             }
         };
         this.on = function(event,name,action) {
             if( isString(event) && isString(name) && isFunction(action) ) {
-                if( !isObject(app.on[event]) ) app.on[event] = {};
-                app.on[event][name] = action;
+                if( !isObject(doc.on[event]) ) doc.on[event] = {};
+                doc.on[event][name] = action;
             }
         };
         
@@ -1521,21 +1718,26 @@ $(function(){
             if(arguments.length) {
                 var arg0 = arguments[0];
                 if( /event/.test(varType(arg0)) ) {
-                    app.onhashchange['default'].apply(arg0);
+                    doc.onhashchange['default'].apply(arg0);
                     //console.log('new hash: '+location.hash);
-                    if( app.onhashchange[app.view] ) {
-                        app.onhashchange[app.view].apply(arg0);
+                    if( doc.onhashchange[doc.view] ) {
+                        doc.onhashchange[doc.view].apply(arg0);
                     }
                 } else switch(varType(arg0)) {
                     case 'function':
-                        app.onhashchange['default'] = arg0;
+                        doc.onhashchange['default'] = arg0;
                         break;
                     case 'string':
                         var arg1;
                         if( arg1 = arguments[1] ) {
-                            if( isFunction(arg1) ) app.onhashchange[arg0] = arg1;
+                            if( isFunction(arg1) ) doc.onhashchange[arg0] = arg1;
                         }
                         break;
+                }
+            } else {
+                doc.onhashchange['default'].apply();
+                if( doc.onhashchange[doc.view] ) {
+                    doc.onhashchange[doc.view].apply();
                 }
             }
         }
@@ -1544,28 +1746,28 @@ $(function(){
         
         this.changeState = function(href,args){
             if( arguments.length == 1 ) {
-                if( isFunction(arguments[0]) ) app.onchangestate = arguments[0];
+                if( isFunction(arguments[0]) ) doc.onchangestate = arguments[0];
             } else if( isString(href) ) {
                 if(!args) args = {};
                 if( isString(args.target_id) && $(args.target_id) ) {
                     $(args.target_id).addClass('loading');
                     if(history.pushState) {
                         $('modals').children().trigger('modal.close');
-                        $.ajax({ type: "POST", url: href, dataType: 'text', processData: false }).always(function(jqXHR,textStatus,errorThrown){
+                        $.ajax({ type: "GET", headers: { 'X-View': 'HTMLHttpRequest' }, url: href, dataType: 'text', processData: false }).always(function(jqXHR,textStatus,errorThrown){
                             if( textStatus == 'success' ) {
                                 var state = { html: jqXHR, view_type: args.view_type, title: args.title || (document.title || ''), href: href, target_id: args.target_id };
                             } else {
                             	if( Number(jqXHR.status) == 403 ) {
                             		args.view_type = 'user';
                             		//$user.status();
-                            		$(document.body).attr('user-logged',false);
+                            		$(document.body).attr('data-user-logged',false);
                             	} else args.view_type = jqXHR.status;
                                 var state = { html: jqXHR.responseText, view_type: args.view_type, title: args.title || (document.title || ''), href: href, target_id: args.target_id };
                             }
                             history.pushState(state,document.title,href);
                             $(args.target_id).removeClass('loading');
                             try{
-                                var event = triggerEvent(args.element || window,'popstate',{ state: state });
+                                var event = triggerEvent(document,'popstate',{ state: state });
                             } catch(err) { alert(err.message); }
                         });
                     }
@@ -1577,49 +1779,52 @@ $(function(){
         this.onView = function(view_name,action){
             if( isString(view_name) ) {
                 if( isFunction(action) ) {
-                    if( !isArray(app.viewHandler[view_name]) ) app.viewHandler[view_name] = [];
-                    app.viewHandler[view_name].push(action);
+                    if( !isArray(doc.viewHandler[view_name]) ) doc.viewHandler[view_name] = [];
+                    doc.viewHandler[view_name].push(action);
                 }
             }
         }
         $(document).on('view.change',function(view){
-            if( isArray(app.viewHandler[view.name]) ) {
-                app.viewHandler[view.name].forEach(function(action){
+            if( isArray(doc.viewHandler[view.name]) ) {
+                doc.viewHandler[view.name].forEach(function(action){
                    if( isFunction(action) ) action.apply(view);
                 });
             }
         });
         
         this.stateChanged = function(e){
-            if( isFunction(e) ) app.onchangestate = e;
+            if( isFunction(e) ) doc.onchangestate = e;
             else {
-                if( !app.current_pathname || app.current_pathname != location.pathname ) {
+                //if( !doc.current_pathname || doc.current_pathname != location.pathname ) {
+                if( !doc.current_pathname || doc.current_pathname != location.pathname ) {
                     var state;
                     if( state = e.state ) {
-                        app.view = location.pathname.split('/')[1];
+                        doc.view = location.pathname.split('/')[1];
+                        console.log('stateChanged | html '+(state.html?'OK':'missing')+', target_id: '+state.target_id )
+                        
                         if(state.target_id) {
                             if(state.html) {
                                 $(state.target_id).render(state.html);
-                                $(document.body).attr('current-view',app.view);
-                                $(document.body).attr('view-type',state.view_type);
+                                $(document.body).attr('data-current-view',doc.view);
+                                $(document.body).attr('data-view-type',state.view_type);
                             } else $(state.target_id).renderHref(state.href,function(){
-                                $(document.body).attr('current-view',app.view);
-                                $(document.body).attr('view-type',state.view_type);
+                                $(document.body).attr('data-current-view',doc.view);
+                                $(document.body).attr('data-view-type',state.view_type);
                             });
-                            $(document).trigger('view.change',[{ name: app.view, type: state.view_type }]);
+                            $(document).trigger('view.change',[{ name: doc.view, type: state.view_type }]);
                         }
-                        app.onchangestate.call(state,e);
+                        doc.onchangestate.call(state,e);
                     } else {
-                        if(app.first_run) location.reload();
-                        app.first_run = true;
+                        if(doc.first_run) location.reload();
+                        doc.first_run = true;
                     }
                 }
-                app.current_pathname = location.pathname;
+                doc.current_pathname = location.pathname;
             }
         }
-        app.view = location.pathname.split('/')[1];
+        doc.view = location.pathname.split('/')[1];
         
-        this._i18n = {};
+        /*this._i18n = {};
         this._i18n['default'] = {};
         
         this.i18n = function(env){
@@ -1628,17 +1833,21 @@ $(function(){
             else env = 'default';
             $.ajax({
                 type: "GET",
-                url: '/base/model/i18n.json'+params,
+                url: '/-/model/i18n.json'+params,
                 dataType: 'text',
                 global: false, async: false,
                 success: function(data){ app._i18n[env] = $.parseJSON(data); }
             });
-            return app._i18n[env] || {};
-        }
+            return doc._i18n[env] || {};
+        }*/
         
     })();
     
-    window.$doc = appHandler;
+    docHandler.ready = function(action){
+        if( isFunction(action) ) action.apply();
+    }
+    
+    window.$doc = docHandler;
     
     window.onhashchange = $doc.hashChange;
     window.onpopstate = $doc.stateChanged;
@@ -1656,21 +1865,30 @@ $(document).ready(function(){
         var jClicked = $(e.target), aux;
         
         while( jClicked.length ) {
-            if( aux = jClicked.attr('on-click') ) $doc.runOn('click',aux,jClicked);
+            if( aux = jClicked.attr('data-on-click') ) $doc.runOn('click',aux,jClicked);
+            
+            if( aux = jClicked.attr('data-trigger') ) {
+                if( aux == 'hashchange' ) $doc.hashChange();
+                else jClicked.trigger(aux);
+            }
             
             if( href = jClicked.attr('href') ) {
+                view_type = jClicked.data('view') || ( jClicked.attr('target') ? (jClicked.attr('target').match(/^\s*view\:([\w\-\_]+)\s*/) || [])[1] : false );
                 
-                if( view_type = jClicked.attr('view-type') ) {
+                if( view_type ) {
                     var target_id = jClicked.attr('view-target') || '#main';
                     if( $(target_id).length && history.pushState ) {
+                        stopEvent(e);
                         if( !/#/.test(href) || href.split('#')[0] != location.pathname.split('#')[0] ) {
-                            stopEvent(e);
                             $doc.changeState(href,{ view_type: view_type, target_id: target_id, element: jClicked.get(0) });
+                        } else if( /#/.test(href) ) {
+                            location.hash = href.split('#')[1];
                         }
+                        
                     }
                     break;
                 }
-                if( target = jClicked.attr('href-target') ) {
+                if( target = jClicked.attr('data-target') ) {
                     if( $(target).length ) {
                         $(target).renderHref(href); stopEvent(e);
                         break;
@@ -1706,37 +1924,21 @@ $(document).ready(function(){
         
         function playFrame(index) {
             jPrevious = jSlides.filter('.active');
-            jPrevious.filter('[any-hide]').aniHide();
+            jPrevious.filter('[data-any-hide]').aniHide();
             jPrevious.removeClass('active').addClass('hidding');
             jSlides.eq(index).addClass('active').aniShow(function(){ jPrevious.removeClass('hidding'); });
             
             setTimeout(function(){
                 nextSlide();
-            }, Number(jSlides.eq(index).attr('slide-duration')) || Number(jSlider.attr('slide-duration')) || 2000 );
+            }, Number(jSlides.eq(index).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 );
         }
         
         function ondemandImg(jSlide,callback){
-            if( !jSlide.find('img[on-demand]').each(function(){
+            if( !jSlide.find('img[data-on-demand]').each(function(){
                 var img = this;
-                img.src = img.getAttribute('on-demand');
-                img.removeAttribute('on-demand');
+                img.src = img.getAttribute('data-on-demand');
+                img.removeAttribute('data-on-demand');
                 img.onload = callback;
-                /*imgCache(img.getAttribute('on-demand'),function(){
-                    img.src = img.getAttribute('on-demand');
-                    //img.onload = callback;
-                    if( isFunction(callback) ) callback.apply(img);
-                });*/
-                
-                /*var jImg = $(this);
-                console.log('on-demand: '+this.getAttribute('on-demand'));
-                var img = this.cloneNode();
-                img.src = this.getAttribute('on-demand');
-                img.removeAttribute('on-demand');
-                img.onload = function(){
-                    console.log('loaded: '+img.src);
-                    jImg.replaceWith(this);
-                    if( isFunction(callback) ) callback.apply(img);
-                }*/
             }).length && isFunction(callback) ) callback.apply(jSlide.get(0));
         }
         
@@ -1748,28 +1950,15 @@ $(document).ready(function(){
             var jSlide = jSlides.eq(index);
             
             if( $(document).contains(jSlider) ) {
-                console.log('nextSlide: '+index+' ('+( Number(jSlides.eq(index).attr('slide-duration')) || Number(jSlider.attr('slide-duration')) || 2000 )+')');
+                console.log('nextSlide: '+index+' ('+( Number(jSlides.eq(index).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 )+')');
                 ondemandImg(jSlide,function(){ playFrame(index); });
             }
-            
-            /*if( !jSlide.find('img[on-demand]').each(function(){
-                var jImg = $(this);
-                console.log('on-demand: '+this.getAttribute('on-demand'));
-                var img = this.cloneNode();
-                img.src = this.getAttribute('on-demand');
-                img.removeAttribute('on-demand');
-                img.onload = function(){
-                    console.log('loaded: '+img.src);
-                    jImg.replaceWith(this);
-                    playFrame(index);
-                }
-            }).length ) playFrame(index);*/
         }
         $(document).ready(function(){
             jSlides.addClass('hide');
             ondemandImg(jSlides.filter('.active').removeClass('hide'),function(){
                 $(this).aniShow();
-                setTimeout(nextSlide, Number(jSlides.filter('.active').attr('slide-duration')) || Number(jSlider.attr('slide-duration')) || 2000 );
+                setTimeout(nextSlide, Number(jSlides.filter('.active').attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 );
             });
         });
     });
@@ -1849,159 +2038,22 @@ $(document).ready(function(){
     
     // LISTS
     
-    /*$html.plugin('[make-list]',function(){
-        var jList = $(this);
-        var nodeName = this.nodeName.toLowerCase();
-        
-        var options = jList.attr('make-list').split(',');
-        options.forEach(function(option){
-            option = option.trim();
-            if( option == 'selectable' ) {
-                if( !jList.hasClass('selectable-rows') ) jList.addClass('selectable-rows');
-                jList.attr('click-list',true);
-            } else if( option == 'sortable' ) {
-                if( !jList.hasClass('sortable-rows') ) jList.addClass('sortable-rows');
-                jList.attr('click-list',true);
-            }
-        });
-    });
-    
-    $doc.click('[click-list]',function(e){
-        var jList = $(this), jClicked = $(e.target), jBase, row_selector, aux;
-        var nodeName = this.nodeName.toLowerCase();
-        var multiple = jList.data('multiple');
-        
-        if( nodeName == 'table' ) {
-            jBase = jList.children('tbody');
-            row_selector = 'tr';
-        } else {
-            jBase = jList;
-            if( nodeName == 'ul' || nodeName == 'ol' ) row_selector = 'li';
-            else row_selector = '.row';
-        }
-        
-        while( jClicked.length ) {
-            if( jClicked.filter(row_selector).length ) {
-                if( jBase.contains(jClicked) ) {
-                    if( jList.hasClass('selectable-rows') ) {
-                        if( jClicked.hasClass('active') ) jClicked.removeClass('active');
-                        else {
-                            if( !multiple ) jBase.children().removeClass('active');
-                            jClicked.addClass('active');
-                        }
-                        jList.trigger('select',[jClicked,jBase]);
-                    }
-                    if( aux = jList.attr('on-select') ) {
-                        $doc.runOn('select',aux,jClicked,[jBase]);
-                    }
-                }
-                
-                jClicked = $();
-            } else if( jClicked.is(jBase) ) jClicked = $();
-            else jClicked = jClicked.parent();
-        }
-    });*/
-    
     $doc.click('label',function(e){
         $(this).next('input').focus();
         $(this).next('select').focus();
         $(this).next('textarea').focus();
     });
     
-    $html.plugin('select',function(){
-        var jSelect = $(this), value;
+    $html.plugin('select[selected-value]',function(){
+        var jSelect = $(this), value = $(this).attr('selected-value');
+        
         jSelect.val(jSelect.children(':first').val()); 
-        if( value = jSelect.attr('selected-value') ) jSelect.val(value);
-    });
-    
-    $html.plugin('.btn-img',function(){
-        var jButton = $(this), jIMG;
-        var jInput = jButton.find('input[type=file]');
         
-        if( jInput.length != 1 ) {
-            var jInput = $('<input type="file" name="'+jButton.attr('name')+'" accept="image/*"></input>');
-            jInput.data('id',jButton.data('id'));
-            jButton.after(jInput);
-            jButton.data('id','');
-        }
-            
-        var jInputReal = $('<input type="hidden" name="'+jInput.attr('name')+'"></input>');
-        jInput.get(0).removeAttribute('name');
-        jButton.append(jInputReal);
+        jSelect.val(value);
         
-        var imgSrc = jButton.attr('img-src');
+        //if( value != 'null' ) $(this).find('[name=\''+value+'\']').attr('selected','selected');
         
-        if( jButton.find('.img-src').length ) {
-            jIMG = jButton.find('.img-src');
-        } else if( imgSrc ) {
-            jIMG = $('<div class="img-src"></div>');
-            jButton.prepend(jIMG);
-            jIMG.css('background-image','url('+imgSrc+')');
-        } else {
-            jIMG = jButton.attr('img-preview') ? $(jButton.attr('img-preview')) : jButton.find('img');
-            
-            if( jIMG.length == 1 ) {
-                
-                if(!jIMG.data('empty'))
-                    jIMG.data('empty','data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==');
-                
-                if( !jIMG.attr('src') || jIMG.attr('src') == '' ) jIMG.attr('src',jIMG.data('empty'));
-            } else jIMG = false;
-            
-        }
-        
-        (function addXhrProgressEvent($) {
-            var originalXhr = $.ajaxSettings.xhr;
-            $.ajaxSetup({
-                xhr: function() {
-                    var req = originalXhr(), that = this;
-                    if (req) {
-                        if (typeof req.addEventListener == "function" && that.progress !== undefined) {
-                            req.addEventListener("progress", that.progress, false);
-                            req.upload.addEventListener("progress", that.progress, false);
-                        }
-                    }
-                    return req;
-                }
-            });
-        })(jQuery);
-        
-        jInput.on('progress',function(e,progress){
-            if (progress.lengthComputable) {
-                var percentComplete = progress.loaded / progress.total;
-                //Do something with upload progress
-                console.log(percentComplete);
-            }
-        });
-        
-        jInput.change(function(e){
-            var theFile = e.target.files[0];
-            var data = new FormData();
-            data.append('file',theFile);
-            
-            jButton.addClass('loading');
-            var jqXHR = $.ajax({
-                type: 'POST',
-                url: jInput.attr('url-upload') || '/data/images.json',
-                data: data,
-                cache: false,
-                contentType: false,
-                processData: false,
-                success: function(data){
-                    if( data ) {
-                        if( data.success ) {
-                            jInputReal.val(data.image);
-                            if( jIMG ) {
-                                var fileReader = new FileReader();
-                                fileReader.onload = function(event){
-                                    if( jIMG.prop('nodeName') == 'IMG' ) jIMG.attr('src',event.target.result);
-                                    else jIMG.css('background-image','url('+event.target.result+')');
-                                };
-                                fileReader.readAsDataURL(theFile);
-                            }
-                        }
-                    } else console.log('[error] /data/images.json\n'+data);
-                }, progress: function(evt) { jInput.trigger('progress',[evt]); }
-            }).always(function(){ jButton.removeClass('loading'); });
-        });
+        /*var jSelect = $(this), value;
+        jSelect.val(jSelect.children(':first').val()); 
+        if( value = jSelect.attr('selected-value') ) jSelect.val(value);*/
     });
