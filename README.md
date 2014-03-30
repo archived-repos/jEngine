@@ -1,7 +1,7 @@
-jPower
+jEngine
 =======
 
->	jPower - This script enhances jQuery providing common useful methods.
+>	jEngine - This script enhances jQuery providing common useful methods.
 
 >	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 
