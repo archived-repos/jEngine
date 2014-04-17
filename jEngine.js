@@ -214,6 +214,7 @@ if (!Object.clone) {
 
 if (!Object.key) {
 	Object.key = function(o,full_key,value){
+	    if(!o) return false;
 		var keys = full_key.split('.'), in_keys = o;
 		if(value) {
             if(keys.length) {
@@ -229,7 +230,7 @@ if (!Object.key) {
 		} else {
             for(var k=0, len = keys.length;k<len;k++) {
                if(in_keys[keys[k]] === undefined) return false;
-               in_keys = in_keys[keys[k]];
+               in_keys = in_keys[keys[k]] || {};
             }
             return in_keys;
 		}
