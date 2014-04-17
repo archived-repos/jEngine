@@ -1,4 +1,4 @@
-//	jEngine - This script enhances jQuery providing useful common methods.
+//	jPower - This script enhances jQuery providing useful common methods.
 //	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 //	
 //	This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,13 @@ window.benchmark = function(task,loops){
   return false;
 };
 
-
+window.log = function(){
+  log.history = log.history || [];
+  log.history.push(arguments);
+  if(this.console){
+    console.log( Array.prototype.slice.call(arguments) );
+  }
+};
 
 (function(){
     function ajax(url,args){
@@ -54,7 +60,8 @@ window.benchmark = function(task,loops){
                 	var data = /^json$/i.test(args.mode) ? JSON.parse(xhr.responseText) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
                     on.done.forEach(function(action){ action.apply(xhr,[data]) });
                 } else {
-                    on.fail.forEach(function(action){ action.apply(xhr,[xhr]) });
+                    var data = /^json$/i.test(args.mode) ? JSON.parse(xhr.responseText) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
+                    on.fail.forEach(function(action){ action.apply(xhr,[data]) });
                 }
                 on.always.forEach(function(action){ action.apply(xhr,[xhr]) });
             }
@@ -81,10 +88,10 @@ window.benchmark = function(task,loops){
     
     window.$ajax = function(){ return ajax.apply(this,arguments); };
     
-    window.$ajax.jsonGet = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'GET'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.jsonPost = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'POST'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.jsonPut = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'PUT'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.jsonDelete = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'DELETE'; return ajax.apply(ajax,[url,args]); }
+    window.$ajax.getJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'GET'; return ajax.apply(ajax,[url,args]); }
+    window.$ajax.postJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'POST'; return ajax.apply(ajax,[url,args]); }
+    window.$ajax.putJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'PUT'; return ajax.apply(ajax,[url,args]); }
+    window.$ajax.deleteJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'DELETE'; return ajax.apply(ajax,[url,args]); }
     
 })();
 
@@ -161,6 +168,39 @@ if (!Array.prototype.clone) {
 	};
 }
 
+/*
+    sortArray.sort(function(a,b) {
+        if ( a.region < b.region )
+            return -1;
+        if ( a.region > b.region )
+            return 1;
+        return 0;
+    } );
+*/
+
+if (!Array.prototype.sortBy) {
+	Array.prototype.sortBy = function(){
+        if( arguments.length ) {
+            var prefs = arguments;
+            if( isArray(arguments[0]) ) prefs = arguments[0];
+            this.sort(function(a,b){
+                var level = 0;
+                
+                while( key = prefs[level++] ) {
+                    if ( Object.key(a,key) < Object.key(b,key) )
+                        return -1;
+                    if ( Object.key(a,key) > Object.key(b,key) )
+                        return 1;
+                }
+                if( a < b ) return -1;
+                if( a > b ) return 1;
+                return 0;
+            });
+        }
+        return this;
+	};
+}
+
 if (!Object.clone) {
 	Object.clone = function(o){
 		var dolly = {};
@@ -218,8 +258,8 @@ if (!String.prototype.replaceKeys) {
  };
 }
 
-if (!String.prototype.cleanKeys) {
- String.prototype.cleanKeys = function() {
+if (!String.prototype.clearKeys) {
+ String.prototype.clearKeys = function() {
     return this.replace(/\${\s*([\w\-\_\.]+)\s*}/g, function(match, key) { return ''; });
  };
 }
@@ -640,12 +680,52 @@ if( !Element.prototype.matchesSelector ) {
                                         Element.prototype.oMatchesSelector;
 }
 
-if( !Element.prototype.nextElementSibling ) {
+/*if( !Element.prototype.nextElementSibling ) {
 	// fix for lte IE9
 }
 
 if( !Element.prototype.firstElementChild ) {
 	// fix for lte IE9
+}*/
+
+if( !Element.prototype.val ) {
+    Element.prototype.val = function(new_value) {
+        if(this.value === undefined) return false;
+        
+        if(new_value !== undefined) {
+            this.value = new_value;
+            return this;
+        } else return this.value;
+    }
+}
+
+if( !HTMLSelectElement.prototype.val ) {
+    HTMLSelectElement.prototype.val = function(new_value) {
+        if(new_value !== undefined) {
+            this.find('[value='+new_value+']').attr('selected','selected');
+            return this;
+        } else {
+            return this.find('[selected=selected]').attr('value');
+        }
+    }
+}
+
+if( !HTMLFormElement.prototype.getKeys ) {
+    HTMLFormElement.prototype.getKeys = function(){
+        var item = {};
+        this.find('[name]').each(function(input){
+            if( /^select|input|textarea$/i.test(input.nodeName) ){
+                var name = input.attr('name');
+                if(!input.attr('disabled')) {
+                    if( item[name] != undefined ) {
+                        if( item[name].push ) item[name].push(input.val() || '');
+                        else item[name] = [item[name],input.val() || ''];
+                    } else item[name] = input.val() || '';
+                }
+            }
+        });
+        return item;
+    }
 }
 
 
@@ -677,7 +757,9 @@ if( !Element.prototype.find )
     
     listDOM.fn = function(name,elementDo,collectionDo) {
         if( isString(name) ) {
-            if( !Element.prototype[name] && isFunction(elementDo) ) Element.prototype[name] = elementDo;
+            if( isFunction(elementDo) ) {
+                if( !Element.prototype[name] ) Element.prototype[name] = elementDo;
+            }
             if( isFunction(collectionDo) ) {
 	            listDOM.prototype[name] = collectionDo;
 	            NodeList.prototype[name] = collectionDo;
@@ -913,105 +995,71 @@ if( !Element.prototype.find )
                Array.prototype.forEach.call(this,function(item){ item.render(html); });
                return this;
            }
-       }
-    });
-    
-    listDOM.event_elements = {};
-    
-    listDOM.prototype.on = function(event,handler){
-        
-        if( isString(event) ) {
-            if(isFunction(handler)) {
-                var originalHandler = handler;
-                handler = function(e){
-                    //this.originalHandler = originalHandler;
-                    originalHandler.apply(e.target,[e].concat(e.data));
-                }
-                
-                Array.prototype.forEach.call(this,function(elem){
-                    
-                    if (elem.addEventListener)  { // W3C DOM
-                        elem.addEventListener(event,handler,false);
-                    } else if (elem.attachEvent) { // IE DOM
-                        elem.attachEvent("on"+event, handler);
-                    } else throw 'No es posible añadir evento';
-                    
-                    if(!elem.listeners) elem.listeners = {};
-                    if( !elem.listeners[event] ) elem.listeners[event] = [];
-                    
-                    elem.listeners[event].push(handler);
-                });
-            } else if( handler === false ) {
-                Array.prototype.forEach.call(this,function(elem){
-                    if(elem.listeners) {
-                        if( elem.listeners[event] ) {
-                            var handlers = elem.listeners[event];
-                            while( handler = handlers.pop() ) {
-                                if (elem.removeEventListener) elem.removeEventListener (event, handler, false);  // all browsers except IE before version 9
-                                else if (elem.detachEvent) elem.detachEvent ('on'+event, handler);   // IE before version 9
+        },
+        'on':{
+            element: function(event,handler){
+                var elem = this;
+                if( isString(event) ) {
+                    if(isFunction(handler)) {
+                        var originalHandler = handler;
+                        handler = function(e){
+                            originalHandler.apply(e.target,[e].concat(e.data));
+                        }
+                        
+                        if (elem.addEventListener)  { // W3C DOM
+                            elem.addEventListener(event,handler,false);
+                        } else if (elem.attachEvent) { // IE DOM
+                            elem.attachEvent("on"+event, handler);
+                        } else throw 'No es posible añadir evento';
+                        
+                        if(!elem.listeners) elem.listeners = {};
+                        if( !elem.listeners[event] ) elem.listeners[event] = [];
+                        
+                        elem.listeners[event].push(handler);
+                    } else if( handler === false ) {
+                        if(elem.listeners) {
+                            if( elem.listeners[event] ) {
+                                var handlers = elem.listeners[event];
+                                while( handler = handlers.pop() ) {
+                                    if (elem.removeEventListener) elem.removeEventListener (event, handler, false);  // all browsers except IE before version 9
+                                    else if (elem.detachEvent) elem.detachEvent ('on'+event, handler);   // IE before version 9
+                                }
                             }
                         }
                     }
+                }
+                
+                return this;
+            },
+            collection: function(event,handler){
+                Array.prototype.forEach.call(this,function(elem){
+                    elem.on(event,handler);
+                });
+                
+                return this;
+            }
+        },
+        'off': {
+            element: function(event){ this.on(event,false); },
+            collection: function(event){ this.on(event,false); }
+        },
+        'trigger': {
+            element: function(event,data){
+                triggerEvent(this,event,false,data);
+            },
+            collection: function(event,data){
+                Array.prototype.forEach.call(this,function(elem){
+                    triggerEvent(elem,event,false,data);
                 });
             }
         }
-        
-        return this;
-    }
-    
-    listDOM.prototype.off = function(event){ return this.on(event,false); }
-    
-    listDOM.prototype.trigger = function(event,data){
-        Array.prototype.forEach.call(this,function(elem){
-            triggerEvent(elem,event,false,data);
-        });
-    }
+    });
     
     window.$dom = function(selector){ return new listDOM(selector); };
     
     document.find = function(selector){ return $dom(selector); };
     
 })();
-
-if( !Element.prototype.val ) {
-    Element.prototype.val = function(new_value) {
-        if(this.value === undefined) return false;
-        
-        if(new_value !== undefined) {
-            this.value = new_value;
-            return this;
-        } else return this.value;
-    }
-}
-
-if( !HTMLSelectElement.prototype.val ) {
-    HTMLSelectElement.prototype.val = function(new_value) {
-        if(new_value !== undefined) {
-            this.find('[value='+new_value+']').attr('selected','selected');
-            return this;
-        } else {
-            return this.find('[selected=selected]').attr('value');
-        }
-    }
-}
-
-if( !HTMLFormElement.prototype.getKeys ) {
-    HTMLFormElement.prototype.getKeys = function(){
-        var item = {};
-        this.find('[name]').each(function(input){
-            if( /^select|input|textarea$/i.test(input.nodeName) ){
-                var name = input.attr('name');
-                if(!input.attr('disabled')) {
-                    if( item[name] != undefined ) {
-                        if( item[name].push ) item[name].push(input.val() || '');
-                        else item[name] = [item[name],input.val() || ''];
-                    } else item[name] = input.val() || '';
-                }
-            }
-        });
-        return item;
-    }
-}
 
 
 // ------------------------------------------------------
@@ -1049,7 +1097,7 @@ if( !HTMLFormElement.prototype.getKeys ) {
                 else if( !isObject(args) ) args = {};
                 
                 if( templates[name] ) {
-                    var tmpl = $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n();
+                    var tmpl = $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.clearKeys }).i18n();
                     
                     if( isFunction(args.done) ) args.done.apply(null,[tmpl]);
                     return tmpl;
@@ -1061,13 +1109,11 @@ if( !HTMLFormElement.prototype.getKeys ) {
                         global: false, async: !!args.async,
                         success: function(tmpl){
                             
-                            //var jTmpl = $('<div>'+tmpl+'</div>');
-                            //jTmpl.extractTemplates();
-                            //templates[name] = jTmpl.html();
+                            /*tmpl = tmpl.replace(/<template /g,'<script type="text/x-template" ').replace(/<\/template>/g,'</script>');
                             
-                            /*tmpl = tmpl.replace(/>([\s\n\r\t]*)</,function(match,spaces){
-                               return '><'; 
-                            });*/
+                            var jTmpl = $('<div>'+tmpl+'</div>');
+                            jTmpl.extractTemplates();
+                            templates[name] = jTmpl.html();*/
                             
                             s_tmpl = tmpl.split(/<\/template>/);
                             tmpl = '';
@@ -1075,7 +1121,6 @@ if( !HTMLFormElement.prototype.getKeys ) {
                             	if( /<template\s+name="([\w\-\_\/]+)">/.test(track) ) {
                             		
                             		tmpl += track.replace(/([\w\W]*)<template\s+name="([\w\-\_\/]+)">([\w\W]*)/,function(match,track,name,tmpl){
-                            			//console.log('found template `'+name+'`\n'+tmpl);
                             			templates[name] = tmpl;
                             			return track;
                             		});
@@ -1085,13 +1130,13 @@ if( !HTMLFormElement.prototype.getKeys ) {
                             
                             templates[name] = tmpl;
                             
-                            if( isFunction(args.done) ) args.done.apply(null,[ $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n() ]);
+                            if( isFunction(args.done) ) args.done.apply(null,[ $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.clearKeys }).i18n() ]);
                         }
                     }).fail(function(jqXHR, textStatus, errorThrown){
                         if( isFunction(args.done) ) args.done.apply(null,[ '<div class="error">['+jqXHR.status+'] '+textStatus+'</div>' ]);
                     });
                     if( !args.async ) {
-                        if( templates[name] ) return $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.cleanKeys }).i18n();
+                        if( templates[name] ) return $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.clearKeys }).i18n();
                         else return '<div class="error">404</div>';
                     }
                 }
@@ -1255,11 +1300,20 @@ if( !HTMLFormElement.prototype.getKeys ) {
                     replaceKeys: args.replaceKeys,
                     done: function(tmpl){
                         var done = args.done; args.done = false;
+                        if( args.model && Mustache != undefined ) {
+                            tmpl = Mustache.render(tmpl,args.model);
+                        }
                         $(target).render(tmpl,args);
                         if( isFunction(done) ) done.apply(target);
                     }
                 });
-            } else $(target).render($html.template(name,{ replaceKeys: args.replaceKeys }),args);
+            } else {
+                var tmpl = $html.template(name,{ replaceKeys: args.replaceKeys });
+                if( args.model && Mustache != undefined ) {
+                    tmpl = Mustache.render(tmpl,args.model);
+                }
+                $(target).render(tmpl,args);
+            }
         }
         
         return this;
@@ -1295,17 +1349,17 @@ if( !HTMLFormElement.prototype.getKeys ) {
         
         jModal.reload = function(){
             if( args.url ) {
-            	jModalBody.render($html.template('loading/dark'));
-                jModalBody.children().addClass('loading-2x');
+            	//jModalBody.render($html.template('loading/dark'));
+                //jModalBody.children().addClass('loading-2x');
             	jModalBody.renderHref(args.url,function(){
             		if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
             	});
             } else if( args.template ) {
                 if( !$html.templateLoaded(args.template) ) {
-                    jModalBody.render($html.template('loading/dark'));
-                    jModalBody.children().addClass('loading-2x');
+                    //jModalBody.render($html.template('loading/dark'));
+                    //jModalBody.children().addClass('loading-2x');
                 }
-                jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, done: function(){
+                jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, model: args.model, done: function(){
                 	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
                 } });
             } else if( args.iframe ) {
@@ -1355,7 +1409,7 @@ if( !HTMLFormElement.prototype.getKeys ) {
     
 })( jQuery );
 
-$(document).on('powered',function(){
+$(document).on('engine.ready',function(){
     $doc.click('[data-modal-href]',function(){
         var jURL = $(this);
         var jModal = $html.modal({ url: jURL.attr('data-modal-href') });
@@ -1427,7 +1481,7 @@ $(document).on('powered',function(){
             if( args.uname ) login_data.uname = args.uname;
             if( args.email ) login_data.email = args.email;
             
-            return $ajax.jsonPost(user.url,{
+            return $ajax.postJSON(user.url,{
               data: login_data
             }).done(function(data, textStatus, jqXHR){
                 user._data = data;
@@ -1956,7 +2010,11 @@ $(function(){
             var item_name = match[1];
             
             model.get(function(items){
+                if( jThis.attr('model-sortby') ) items.sortBy( jThis.attr('model-sortby').split(',') );
+                
             	items.forEach(function(model_item){
+            	    if(model_item.status == 'deleted') return false;
+            	    
             		var item = model_item;
             		item_path = items_path.clone();
 	            	while( path_step = item_path.shift() ) {
@@ -2023,7 +2081,7 @@ $(function(){
         }
     });
     
-    $(document).on('powered',function(){
+    $(document).on('engine.ready',function(){
         $doc.click('[model-action]',function(){
             var jClicked = $(this), action = jClicked.attr('model-action'), match;
             var patt = /^\s*(([\-\_\w]+)(\/([\-\_\w]+))?\.)?([\-\_\w]+)\s*$/;
@@ -2128,11 +2186,15 @@ $(function(){
 })( jQuery );
 
     // HTML PLUGIN
-
+    
+(function( $html ){
+    
     $html.plugin('[data-gear]',function(){
         $gear($(this).attr('data-gear')).run();
         console.log('[data-gear='+$(this).attr('data-gear')+']');
     });
+    
+})($html);
 
 // ------------------------------------------------------
 //      $doc
@@ -2378,11 +2440,11 @@ $(document).ready(function(){
         }
     });
     
-    console.log('jEngine started!');
+    //console.log('jEngine started!');
     
     if( /#/.test(location) ) $doc.hashChange();
     
-    $(document).trigger('powered');
+    $(document).trigger('engine.ready');
 });
 
 
@@ -2402,9 +2464,11 @@ $(document).ready(function(){
             jPrevious.removeClass('active').addClass('hidding');
             jSlides.eq(index).addClass('active').aniShow(function(){ jPrevious.removeClass('hidding'); });
             
+            var timeout = Number($(this).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration'));
+            if( timeout )
             setTimeout(function(){
                 nextSlide();
-            }, Number(jSlides.eq(index).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 );
+            }, timeout );
         }
         
         function ondemandImg(jSlide,callback){
@@ -2428,7 +2492,7 @@ $(document).ready(function(){
             var jSlide = jSlides.eq(index);
             
             if( $(document).contains(jSlider) ) {
-                console.log('nextSlide: '+index+' ('+( Number(jSlides.eq(index).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 )+')');
+                //console.log('nextSlide: '+index+' ('+( Number(jSlides.eq(index).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 )+')');
                 ondemandImg(jSlide,function(){ playFrame(index); });
             }
         }
@@ -2436,7 +2500,8 @@ $(document).ready(function(){
         jSlides.addClass('hide');
         ondemandImg(jSlides.filter(':first'),function(){
             $(this).addClass('active').aniShow();
-            setTimeout(nextSlide, ( Number($(this).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration')) || 2000 ) );
+            var timeout = Number($(this).attr('data-slide-duration')) || Number(jSlider.attr('data-slide-duration'));
+            if( timeout ) setTimeout(nextSlide, timeout );
         });
     });
     
