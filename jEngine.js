@@ -213,13 +213,26 @@ if (!Object.clone) {
 }
 
 if (!Object.key) {
-	Object.key = function(o,key){
-		var path = key.split('.'), in_keys = o;
-        for(var k=0;k<path.length;k++) {
-           if(in_keys[path[k]] == undefined) return false;
-           in_keys = in_keys[path[k]];
-        }
-        return in_keys;
+	Object.key = function(o,full_key,value){
+		var keys = full_key.split('.'), in_keys = o;
+		if(value) {
+            if(keys.length) {
+                var key = keys.shift(), next_key;
+                while( next_key = keys.shift() ) {
+                    if( !o[key] ) o[key] = {};
+                    o = o[key];
+                    key = next_key;
+                }
+                o[key] = value;
+            }
+            return value;
+		} else {
+            for(var k=0, len = keys.length;k<len;k++) {
+               if(in_keys[keys[k]] === undefined) return false;
+               in_keys = in_keys[keys[k]];
+            }
+            return in_keys;
+		}
 	};
 }
 
@@ -504,10 +517,11 @@ var $cookies = new (function(){
                             if( /^select|input|textarea$/i.test(jInput.prop('nodeName')) ){
                                 var name = jInput.attr('name');
                                 if(!jInput.is(':disabled')) {
-                                    if( item[name] != undefined ) {
+                                    Object.key(item,name,jInput.val());
+                                    /*if( item[name] != undefined ) {
                                         if( item[name].push ) item[name].push(jInput.val() || '');
                                         else item[name] = [item[name],jInput.val() || ''];
-                                    } else item[name] = jInput.val() || '';
+                                    } else item[name] = jInput.val() || '';*/
                                 }
                             }
                         });
@@ -717,10 +731,11 @@ if( !HTMLFormElement.prototype.getKeys ) {
             if( /^select|input|textarea$/i.test(input.nodeName) ){
                 var name = input.attr('name');
                 if(!input.attr('disabled')) {
-                    if( item[name] != undefined ) {
+                    Object.key(item,name,input.val());
+                    /*if( item[name] != undefined ) {
                         if( item[name].push ) item[name].push(input.val() || '');
                         else item[name] = [item[name],input.val() || ''];
-                    } else item[name] = input.val() || '';
+                    } else item[name] = input.val() || '';*/
                 }
             }
         });
@@ -1640,6 +1655,10 @@ $(document).on('engine.ready',function(){
         return false;
     }
     
+    modelHandler.prototype.clear = function(){
+        core_models[this.name] = false;
+    }
+    
     modelHandler.prototype.item = function(id){
         var table = core_models[this.name];
         return new itemHandler(this,table,id);
@@ -1951,26 +1970,9 @@ $(document).on('engine.ready',function(){
         		if( isFunction(args.done) ) args.done.apply(model,[core_models[selectors]]);
         		return core_models[selectors];
         	} else {
-		        /*var full_json = true,
-		            url = $(document.body).attr('data-model-url') ? $(document.body).attr('data-model-url').replace(':user',selectors) : '/data/'+selectors+'.json';
-		        $.ajax({
-		            type: "GET",
-		            url: url,
-		            dataType: 'json',
-		            global: false, async: isFunction(args.done),
-		            success: function(json){
-		                full_json = json;
-		                if( isObject(json.data) ) {
-		                	Object.keys(json.data).forEach(function(name){
-		                		_model(name).set(json.data[name]);
-		                	});
-		                }
-		                if( isFunction(args.done) ) args.done.apply(model,[json]);
-		            }
-		        });*/
-		        return _model(selectors).get(args.done)
-		        
-		        //return full_json;
+        	    //console.log('model required '+selectors+', args: '+Object.keys(args));
+        	    if( args.reload ) _model(selectors).clear();
+		        return _model(selectors).get(args.done);
         	}
         }
 	        
