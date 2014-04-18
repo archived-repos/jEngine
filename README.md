@@ -17,3 +17,55 @@ jEngine
     _.stopEvent(e)    preventDefault() alias
 	
     _.triggerEvent(element,event_name,data)
+    
+    _.varType(obj)
+    
+    _.isObject(obj,type|['any'])
+    
+    _.isArray(obj)
+    
+    _.isString(obj)
+    
+    _.isFunction(obj)
+    
+    _.isNumber(obj)
+    
+    
+    
+    _.key(obj,selector,value?)
+    
+    _.keys(obj)
+    
+    
+    _.sortBy(list,selector1,selector2)
+    
+    
+    _.clone(obj)
+    
+    
+    
+##### $ajax
+
+	$ajax('some/url').get();
+	
+	               " .post(obj);
+	               
+	               " .put(obj);
+	               
+	               " .patch(obj);
+	               
+	               " .delete(obj);
+
+
+##### i18n
+
+	backend dependencie
+	
+	
+##### $script
+
+	string script example:
+	
+	'some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}'
+	
+	
