@@ -57,9 +57,9 @@ jEngine
 	               " .delete(obj);
 
 
-##### i18n
+##### $i18n
 
-	backend dependencie
+	backend dependencies
 	
 	
 ##### $script
