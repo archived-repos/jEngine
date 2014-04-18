@@ -261,22 +261,58 @@ if (!Object.key) {
         tokens.forEach(function(token){
             if( isString(token) ) result += token;
             else if( isObject(token,'modelscript') ) result += token.render(model);
+            else if( isArray(token) ) result += $script._run(token,model);
         });
         
         return result;
     }
     
+    $script.modelQuery = function(model,selector) {
+		var path = selector.split('/'), step, parent;
+		while( step = path.shift() ) {
+			if( step != '.' ) {
+				if( step == '..' ) model = model._parent || {};
+				else {
+					parent = model;
+					model = Object.key(model,step);
+					model._parent = parent;
+				}
+			}
+		}
+		return model;
+    }
+    
+	$script.modelEach = function(model,each) {
+		function eachItem(item){
+			if(isString(item)) {
+				item = [item]; item._parent = model._parent;
+			} else item._parent = model;
+			each(item);
+		}
+		
+		if( isFunction(each) ){
+			if( isArray(model) ) {
+				model.forEach(eachItem);
+			} else if( isObject(model) ) {
+				Object.keys(model).forEach(function(key){ eachItem(model[key]); });
+			}
+		}
+		return model;
+	}
+    
     cmd.root = function(model,arg,content){ return content; };
         
-    cmd.var = function(model,arg,content){ return Object.key(model,arg); };
+    cmd.var = function(model,arg,content){ return $script.modelQuery(model,arg); };
     
     cmd.if = function(model,arg,content,otherwise){
 		if( arg.substr(0,1) == '!' ) {
 			arg = arg.substr(1).trim();
-			return (Object.key(model,arg || '') ? otherwise : content);
+			return $script.modelQuery(model,arg || '') ? otherwise : content;
 		}
-		return (Object.key(model,arg || '') ? content : otherwise);
+		return $script.modelQuery(model,arg || '') ? content : otherwise;
     };
+    
+    //cmd.string = function(model,arg,content){ return content; }
     
     function modelScript(cmd,arg,options,list){
         this.cmd = cmd;
@@ -355,9 +391,10 @@ if (!Object.key) {
 	    var result = '', selected_object = false;
 	    
 	    if( /^[\w\_\-]+$/.test(arg) ) {
-            selected_object = Object.key(model,arg);
-            if( isArray(selected_object) )  selected_object.forEach(function(submodel){ result += $script._run(tokens,submodel); });
-            else if( selected_object instanceof Object )  Object.keys(selected_object).forEach(function(key){ result += $script._run(tokens,selected_object[key]); });
+            selected_object = $script.modelQuery(model,arg);
+            $script.modelEach(selected_object,function(submodel){
+            	result += $script._run(tokens,submodel);
+            });
         }
         return result;
     });
@@ -365,35 +402,35 @@ if (!Object.key) {
     $script.cmd('for',function(model,arg,tokens){
 	    var result = '', selected_object = false;
 	    
-	    function _run(var_name,object_selector){
-            selected_object = Object.key(model,object_selector);
+	    function _run(object_selector,var_name){
+            selected_object = $script.modelQuery(model,object_selector);
             if( isArray(selected_object) ) {
                 selected_object.forEach(function(item){
-                    var submodel = {}; submodel[var_name] = item;
+                    var submodel = { _parent: model };
+                    if(var_name) submodel[var_name] = item; else submodel = item;
                     result += $script._run(tokens,submodel);
                 });
             } else if( selected_object instanceof Object ) {
                 Object.keys(selected_object).forEach(function(key){
-                    var submodel = {}; submodel[var_name] = selected_object[key];
+                    var submodel = { _parent: model };
+                    if(var_name) submodel[var_name] = item; else submodel = item;
                     result += $script._run(tokens,submodel);
                 });
             }
         }
 	    
         if( /^\s*[\w\.\_\-]+\s+in\s+[\w\.\_\-]+\s*$/.test(arg) ) {
-        	console.log('each',arguments);
             var params = arg.match(/^\s*([\w\.\_\-]+)\s+in\s+([\w\.\_\-]+)\s*$/);
-            _run(params[1],params[2]);
+            _run(params[2],params[1]);
         }
         return result;
     });
 
-window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks} tarea: ${.}${/} ${hola.caracola}');
+window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
 if (!String.prototype.render) {
 	String.prototype.render = function(model){
-		if( !this.$script ) this.$script = $script(this);
-		return this.$script.render(model);
+		return $script(this).render(model);
 	}
 }
 
