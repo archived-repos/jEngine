@@ -26,7 +26,12 @@ window.log = function(){
 
 (function(){
     function ajax(url,args){
-        if( !args ) args = {};
+        if( !args ) {
+        	if( url instanceof Object ) args = url;
+        	else args = {};
+        }
+        if( args.url ) url = args.url;
+        if( !url ) return false;
         
         var on = { done: [], fail: [], always: [] };
         
@@ -94,6 +99,58 @@ window.log = function(){
     window.$ajax.deleteJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'DELETE'; return ajax.apply(ajax,[url,args]); }
     
 })();
+
+// ------------------------------------------------------
+//      i18n
+// ------------------------------------------------------
+
+(function( ){
+    var _i18n = {};
+    
+    function get_i18n(env,callback){
+        var params = '';
+        if( isString(env) ) params = '?env='+env;
+        else env = 'default';
+        
+        if( _i18n[env] ) return _i18n[env];
+        
+        $ajax('/-/model/i18n.json'+params,{
+            method: "GET",
+            mode: 'text',
+            async: isFunction(callback),
+            done: function(data){
+                _i18n[env] = JSON.parse(data);
+                if( isFunction(callback) ) callback.apply(window.$i18n,[i18n[env]]);
+            }
+        });
+        if( isFunction(callback) ) return true;
+        else return _i18n[env] || {};
+    }
+    
+    window.$i18n = function(key,env){
+        var env = false, callback = false;
+        
+        return get_i18n(env)[key];
+    };
+    
+    window.$i18n.get = get_i18n;
+    
+    if( !String.prototype.i18n ) {
+        String.prototype.i18n = function() {
+            var str = this;
+            return this.replace(/\$i18n{\s*([\:\w\-\_\.]+)\s*}/g, function(match, text) {
+                var cmd = text.split(':'), env = false, key, i18n;
+                if( cmd[1] ) { env = cmd[0]; key = cmd[1] } else { key = cmd[0]; }
+                
+                i18n = get_i18n(env);
+                
+                return i18n[key] || match;
+            });
+        }
+    }
+    window.i18n = function(text){ if( isString(text) ) return /^[\:\w\-\_\.]+$/.test(text) ? ('$i18n{'+text+'}').i18n() : text.i18n(); else return text; };
+    
+})( );
 
 // ------------------------------------
 // NATIVE PROTOTYPE FUNCIONS
@@ -167,16 +224,6 @@ if (!Array.prototype.clone) {
 		return dolly;
 	};
 }
-
-/*
-    sortArray.sort(function(a,b) {
-        if ( a.region < b.region )
-            return -1;
-        if ( a.region > b.region )
-            return 1;
-        return 0;
-    } );
-*/
 
 if (!Array.prototype.sortBy) {
 	Array.prototype.sortBy = function(){
@@ -268,6 +315,9 @@ if (!Object.key) {
     }
     
     $script.modelQuery = function(model,selector) {
+    	selector = selector.trim();
+    	if( /^\'.*\'$/.test(selector) ) return [selector.match(/^\'(.*)\'$/)[1]];
+    	
 		var path = selector.split('/'), step, parent;
 		while( step = path.shift() ) {
 			if( step != '.' ) {
@@ -305,12 +355,20 @@ if (!Object.key) {
     cmd.var = function(model,arg,content){ return $script.modelQuery(model,arg); };
     
     cmd.if = function(model,arg,content,otherwise){
-		if( arg.substr(0,1) == '!' ) {
+		if( /[\w\.\_\-]+\s*[\!\<\>\=]+\s*[\w\.\_\-]+/.test(arg) ) {
+			// pending implement operator for if
+		} else if( arg.substr(0,1) == '!' ) {
 			arg = arg.substr(1).trim();
 			return $script.modelQuery(model,arg || '') ? otherwise : content;
 		}
 		return $script.modelQuery(model,arg || '') ? content : otherwise;
     };
+    
+    cmd.i18n = function(model,arg){
+		var params = (arg || '').match(/((\w+)\:)?([\w\.\_\-]+)/);
+		console.log(params);
+		return $i18n(params[3],params[2]);
+    }
     
     //cmd.string = function(model,arg,content){ return content; }
     
@@ -356,12 +414,15 @@ if (!Object.key) {
                 if( token.cmd ) {
                     
                     switch(token.cmd) {
+                    	case 'i18n':
+                    		options[current_option].push(new modelScript(token.cmd,token.arg.replace(/\/$/,'')));
+                    		break;
                         case 'case':
                         case 'when':
                             nextOption(token.arg);
                             break;
                         default: // cmd is like a helper
-                        	if( arg.substr(-1) == '/' ) options[current_option].push(new modelScript(token.cmd,token.arg));
+                        	if( token.arg.substr(-1) == '/' ) options[current_option].push(new modelScript(token.cmd,token.arg.replace(/\/$/,'')));
                             else options[current_option].push(parseTokens(token.cmd,token.arg,tokens));
                             break;
                     }
@@ -426,7 +487,7 @@ if (!Object.key) {
         return result;
     });
 
-window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
+//window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
 if (!String.prototype.render) {
 	String.prototype.render = function(model){
@@ -478,17 +539,6 @@ if (!String.prototype.clearKeys) {
 // function String.is('some text')
 if (!String.prototype.is) { String.prototype.is = function(other) { return this == other; }; }
 
-// function String.formatText(arg1,args2,...)
-// return: replaced '%n' by arg[n] string
-/*if (!String.prototype.formatText) {
- String.prototype.formatText = function() {
-   var args = arguments;
-   return this.replace(/{(\d+)}/g, function(match, number) { 
-     return typeof args[number] != 'undefined' ? args[number] : match ;
-   });
- };
-}*/
-
 // function String.serialized2JSON()
 // return: { key1: 'value1', key2: 'value2' } from 'key1=value1&key2=value2'
 if (!String.prototype.serialized2JSON) {
@@ -536,7 +586,6 @@ if (!String.prototype.toDate) {
     }
 }
 
-
 function compareDates(date1,date2){
     if( isString(date1) && isString(date2) ) {
         var date1 = date1.toDate();
@@ -550,7 +599,7 @@ function compareDates(date1,date2){
     return false;
 }
 
-function listField(array,field) {
+/*function listField(array,field) {
     var list = [];
     var key;
     
@@ -562,6 +611,7 @@ function listField(array,field) {
 
 function serializeKeys(keys,encoded){
     var serialized = false;
+    
     for( key in keys ) {
         
         if( keys[key].forEach ) {
@@ -578,7 +628,7 @@ function serializeKeys(keys,encoded){
         }
     }
     return serialized;
-}
+}*/
 
 
 var $cookies = new (function(){
@@ -681,7 +731,7 @@ var $cookies = new (function(){
     
     /* MODEL HANDLERS */
     
-    $.event.props.push('dataTransfer');
+    /*$.event.props.push('dataTransfer');
     
     $.fn.getKeys = function(filter) {
         var jThis = $(this);
@@ -716,10 +766,10 @@ var $cookies = new (function(){
                                 var name = jInput.attr('name');
                                 if(!jInput.is(':disabled')) {
                                     Object.key(item,name,jInput.val());
-                                    /*if( item[name] != undefined ) {
-                                        if( item[name].push ) item[name].push(jInput.val() || '');
-                                        else item[name] = [item[name],jInput.val() || ''];
-                                    } else item[name] = jInput.val() || '';*/
+                                    // if( item[name] != undefined ) {
+                                    //     if( item[name].push ) item[name].push(jInput.val() || '');
+                                    //     else item[name] = [item[name],jInput.val() || ''];
+                                    // } else item[name] = jInput.val() || '';
                                 }
                             }
                         });
@@ -739,7 +789,7 @@ var $cookies = new (function(){
             jThis.each(function(){ items.push($(this).getKeys()); });
             return items;
         } else return false;
-   };
+   };*/
    
 })( jQuery );
 
@@ -818,69 +868,6 @@ var $cookies = new (function(){
     
 })( jQuery );
 
-
-// ------------------------------------------------------
-//      i18n
-// ------------------------------------------------------
-
-(function( $ ){
-    var _i18n = {};
-    
-    function get_i18n(env,callback){
-        var params = '';
-        if( isString(env) ) params = '?env='+env;
-        else env = 'default';
-        
-        if( _i18n[env] ) return _i18n[env];
-        
-        $.ajax({
-            type: "GET",
-            url: '/-/model/i18n.json'+params,
-            dataType: 'text',
-            global: false, async: isFunction(callback),
-            success: function(data){
-                _i18n[env] = JSON.parse(data);
-                if( isFunction(callback) ) callback.apply(window.$i18n,[i18n[env]]);
-            }
-        });
-        if( isFunction(callback) ) return true;
-        else return _i18n[env] || {};
-    }
-    
-    window.$i18n = function(){
-        var env = false, callback = false;
-        
-        if( arguments.length ) {
-            
-            if( isString(arguments[0]) ) {
-                env = arguments[0];
-                if( isFunction(arguments[1]) ) callback = arguments[1];
-            } else if( isFunction(arguments[0]) ) callback = arguments[0];
-            
-            return get_i18n(env,callback);
-            
-        } else return get_i18n(env);
-    };
-    
-    window.$i18n.get = get_i18n;
-    
-    if( !String.i18n ) {
-        String.prototype.i18n = function() {
-            var str = this;
-            return this.replace(/\$i18n{\s*([\:\w\-\_\.]+)\s*}/g, function(match, text) {
-                var cmd = text.split(':'), env = false, key, i18n;
-                if( cmd[1] ) { env = cmd[0]; key = cmd[1] } else { key = cmd[0]; }
-                
-                i18n = get_i18n(env);
-                
-                return i18n[key] || match;
-            });
-        }
-    }
-    window.i18n = function(text){ if( isString(text) ) return /^[\:\w\-\_\.]+$/.test(text) ? ('$i18n{'+text+'}').i18n() : text.i18n(); else return text; };
-    
-})( jQuery );
-
 // ------------------------------------------------------
 //      $dom.prototype
 // ------------------------------------------------------
@@ -891,14 +878,6 @@ if( !Element.prototype.matchesSelector ) {
                                         Element.prototype.msMatchesSelector ||
                                         Element.prototype.oMatchesSelector;
 }
-
-/*if( !Element.prototype.nextElementSibling ) {
-	// fix for lte IE9
-}
-
-if( !Element.prototype.firstElementChild ) {
-	// fix for lte IE9
-}*/
 
 if( !Element.prototype.val ) {
     Element.prototype.val = function(new_value) {
@@ -940,8 +919,6 @@ if( !HTMLFormElement.prototype.getKeys ) {
         return item;
     }
 }
-
-
 
 if( !Element.prototype.find )
 (function(){
@@ -1201,6 +1178,15 @@ if( !Element.prototype.find )
        'render': {
            element: function(html){
                 this.innerHTML = html;
+                this.find('script').each(function(script){
+                	if( script.type == 'text/javascript' ) {
+                		try{ eval('(function(){'+script.textContent+'})();'); }catch(err){ console.log(err.message); }
+                	} else if( /^text\/coffee(script)/.test(script.type) && isObject(window.CoffeeScript) ) {
+                		if( CoffeeScript.compile instanceof Function ) {
+                			try{ eval(CoffeeScript.compile(script.textContent)); }catch(err){ console.log(err.message); }
+                		}
+                	}
+                });
                 
                 return this;
            },
