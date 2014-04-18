@@ -64,8 +64,16 @@ jEngine
 	
 ##### $script
 
-	string script example:
+	template script example:
 	
-	'some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}'
+		var template_script = $script('$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show');
+		
+		result = template_script.render({ list: [ 'item1', 'item2' ] });
+		
+		> 'list items: [item1][item2]'
 	
+	or just ( using String.render() )
 	
+		'$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show'.render({ list: [ 'item1', 'item2' ] });
+		
+		
