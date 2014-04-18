@@ -5,31 +5,175 @@
 //	it under the terms of the GNU General Public License as published by
 //	the Free Software Foundation, either version 3 of the License.
 
-window.benchmark = function(task,loops){
-    loops = loops || 100000
-  if( task instanceof Function ) {
-    var start = (new Date()).getTime();
-    for(var i=0; i < loops ; i++ ) task();
-    var end = (new Date()).getTime();
-    return end-start;
-  }
-  return false;
-};
-
-window.log = function(){
-  log.history = log.history || [];
-  log.history.push(arguments);
-  if(this.console){
-    console.log( Array.prototype.slice.call(arguments) );
-  }
-};
-
 (function(){
+	
+	window.benchmark = function(task,loops){
+		loops = loops || 100000
+		if( task instanceof Function ) {
+			var start = (new Date()).getTime();
+			for(var i=0; i < loops ; i++ ) task();
+			var end = (new Date()).getTime();
+			return end-start;
+		}
+		return false;
+	};
+	
+	window.log = function(){
+		log.history = log.history || [];
+		log.history.push(arguments);
+		if(this.console){
+			console.log( Array.prototype.slice.call(arguments) );
+		}
+	};
+	
+	// ------------------------------------
+	// NATIVE PROTOTYPE FUNCIONS
+	// ------------------------------------
+	
+	window._ = function(){};
+	
+	window.stopEvent = function(e) {
+		if(e) e.stopped = true;
+		if (e &&e.preventDefault) e.preventDefault();
+		else if (window.event && window.event.returnValue) window.eventReturnValue = false;
+	}
+	
+	window.triggerEvent = function(element,name,args,data){
+		var event; // The custom event that will be created
+		
+		if (document.createEvent) {
+			event = document.createEvent("HTMLEvents");
+			event.data = data;
+			event.initEvent(name, true, true);
+		} else {
+			event = document.createEventObject();
+			event.data = data;
+		}
+		
+		event.eventName = name;
+		if( isObject(args) ) {
+			_.keys(args).forEach(function(key){ event[key] = args[key]; });
+		}
+		
+		if(document.createEvent) element.dispatchEvent(event);
+		else element.fireEvent("on" + event.eventType, event);
+		
+		return event;
+	}
+	
+	window.varType = function(obj){
+		if( obj === undefined || obj === null ) return 'undefined';
+		if( typeof(obj) == 'object' ) {
+			if( obj.jquery ) return 'jquery';
+			
+			var match = (''+obj.constructor).match(/^\s*function\s*(.*)\(/);
+			if( match ) return match[1].toLowerCase();
+			
+			match = (''+obj.constructor).match(/^\[object\s(.*)\]$/);
+			if( match ) return match[1].toLowerCase();
+			
+			alert('unknown object '+obj.constructor);
+		} else return typeof(obj);
+	}
+	
+	window.isObject = function(myVar,type){ if( myVar instanceof Object ) return ( type == 'any' ) ? true : ( varType(myVar) == (type || 'object') ); else return false; }
+	window.isString = function(myVar){ return varType(myVar) == 'string'; }
+	window.isFunction = function(myVar){ return myVar instanceof Function; }
+	window.isArray = function(myVar){ return myVar instanceof Array; }
+	window.isNumber = function(myVar){ return varType(myVar) == 'number'; }
+	
+	window._.stopEvent = window.stopEvent;
+	window._.triggerEvent = window.triggerEvent;
+	window._.varType = window.varType;
+	window._.isObject = window.isObject;
+	window._.isString = window.isString;
+	window._.isFunction = window.isFunction;
+	window._.isArray = window.isArray;
+	window._.isNumber = window.isNumber;
+	
+	if (!window._.key) {
+		window._.key = function(o,full_key,value){
+			if(!o) return false;
+			var keys = full_key.split('.'), in_keys = o;
+			if(value) {
+				if(keys.length) {
+					var key = keys.shift(), next_key;
+					while( next_key = keys.shift() ) {
+						if( !o[key] ) o[key] = {};
+						o = o[key];
+						key = next_key;
+					}
+					o[key] = value;
+				}
+				return value;
+			} else {
+			for(var k=0, len = keys.length;k<len;k++) {
+				if(in_keys[keys[k]] === undefined) return false;
+					in_keys = in_keys[keys[k]] || {};
+				}
+				return in_keys;
+			}
+		};
+	}
+	
+	if (!window._.keys) window._.keys = Object.keys;
+	
+	if (!window._.sortBy) {
+		window._.sortBy = function(){
+			var _array = Array.prototype.shift.call(arguments);
+			if( arguments.length ) {
+				var prefs = arguments;
+				if( isArray(arguments[0]) ) prefs = arguments[0];
+				
+				_array.sort(function(a,b){
+					var level = 0;
+					
+					while( key = prefs[level++] ) {
+						if ( _.key(a,key) < _.key(b,key) ) return -1;
+						if ( _.key(a,key) > _.key(b,key) ) return 1;
+					}
+					if( a < b ) return -1;
+					if( a > b ) return 1;
+					return 0;
+				});
+			}
+			return _array;
+		};
+	}
+	
+	if( !window._.clone ) {
+		window._.clone = function(){
+			var molly = Array.prototype.shift.call(arguments);
+			if( molly === undefined ) return false;
+			if( isObject(molly) ) {
+				var dolly = {};
+				_.keys(molly).forEach(function(key){
+					dolly[key] = _.clone(molly[key]);
+				});
+				return dolly;
+			} else if( isArray(molly) ) {
+				var dolly = [];
+				molly.forEach(function(item){
+					dolly.push(_.clone(item));
+				});
+				return dolly;
+			} else return molly;
+		}
+	}
+	
+	if( !window._.each ) {
+		window._.each = function(list,action){
+			if( !isFunction(action) ) return list;
+			var index = 0;
+			if( isObject(list) ) _.keys(list).forEach(function(key){ action.apply(list, [ list[key], index++ ]); });
+			else if( isArray(list) ) list.forEach(function(item){ action.apply(list, [ item, index++ ]); });
+			return list;
+		}
+	}
+	
+	
     function ajax(url,args){
-        if( !args ) {
-        	if( url instanceof Object ) args = url;
-        	else args = {};
-        }
+        if( !args ) args = ( url instanceof Object ) ? url : {};
         if( args.url ) url = args.url;
         if( !url ) return false;
         
@@ -61,7 +205,7 @@ window.log = function(){
         xhr.open(args.method,url,(args.async === undefined) ? true : args.async);
         xhr.onreadystatechange=function(){
             if( xhr.readyState == 'complete' || xhr.readyState == 4 ) {
-                if( xhr.status == 200 ) {
+                if( xhr.status >= 200 && xhr.status <300 ) {
                 	var data = /^json$/i.test(args.mode) ? JSON.parse(xhr.responseText) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
                     on.done.forEach(function(action){ action.apply(xhr,[data]) });
                 } else {
@@ -81,7 +225,7 @@ window.log = function(){
         xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
         
         if( isObject(args.headers) ) {
-            Object.keys(args.headers).forEach(function(header){
+            _.keys(args.headers).forEach(function(header){
                 xhr.setRequestHeader(header,args.headers[header]);
             });
         }
@@ -91,12 +235,20 @@ window.log = function(){
         return xhr;
     }
     
-    window.$ajax = function(){ return ajax.apply(this,arguments); };
+    var ajaxHandler = function(url,args){
+		this.url = isString(url) ? url : '';
+		this.args = isObject(args) ? args : {};
+    }
     
-    window.$ajax.getJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'GET'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.postJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'POST'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.putJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'PUT'; return ajax.apply(ajax,[url,args]); }
-    window.$ajax.deleteJSON = function(url,args){ args = args || {}; args.mode = args.mode || 'json'; args.method = 'DELETE'; return ajax.apply(ajax,[url,args]); }
+    ajaxHandler.prototype.send = function(data,method){ this.args.method = method || 'GET'; return ajax(this.url,this.args); };
+    
+    ajaxHandler.prototype.get = function(data){ this.args.data = data; return this.send(data,'GET'); };
+    ajaxHandler.prototype.post = function(data){ this.args.data = data; return this.send(data,'POST'); };
+    ajaxHandler.prototype.put = function(data){ this.args.data = data; return this.send(data,'PUT'); };
+    ajaxHandler.prototype.patch = function(data){ this.args.data = data; return this.send(data,'DELETE'); };
+    ajaxHandler.prototype.delete = function(data){ this.args.data = data; return this.send(data,'PATCH'); };
+    
+    window.$ajax = function(url,args){ return new ajaxHandler(url,args); }
     
 })();
 
@@ -152,138 +304,9 @@ window.log = function(){
     
 })( );
 
-// ------------------------------------
-// NATIVE PROTOTYPE FUNCIONS
-// ------------------------------------
-
-function stopEvent(e) {
-    if(e) e.stopped = true;
-    if (e &&e.preventDefault) e.preventDefault();
-    else if (window.event && window.event.returnValue) window.eventReturnValue = false;
-}
-
-function triggerEvent(element,name,args,data){
-  var event; // The custom event that will be created
-
-  if (document.createEvent) {
-    event = document.createEvent("HTMLEvents");
-    event.data = data;
-    event.initEvent(name, true, true);
-  } else {
-    event = document.createEventObject();
-    event.data = data;
-  }
-
-  event.eventName = name;
-  if( isObject(args) ) {
-      Object.keys(args).forEach(function(key){ event[key] = args[key]; });
-  }
-
-  if(document.createEvent) {
-    element.dispatchEvent(event);
-  } else {
-    element.fireEvent("on" + event.eventType, event);
-  }
-  
-  return event;
-}
-
-
-Event = Event || window.Event;
-
-
-function varType(obj){
-    if( obj === undefined || obj === null ) return 'undefined';
-    if( typeof(obj) == 'object' ) {
-        if( obj.jquery ) return 'jquery';
-        
-        var match = (''+obj.constructor).match(/^\s*function\s*(.*)\(/);
-        if( match ) return match[1].toLowerCase();
-        
-        match = (''+obj.constructor).match(/^\[object\s(.*)\]$/)
-        if( match ) return match[1].toLowerCase();
-        
-        alert('unknown object '+obj.constructor);
-    } else return typeof(obj);
-}
-
-
-function isObject(myVar,type){ if( myVar instanceof Object ) return ( type == 'any' ) ? true : ( varType(myVar) == (type || 'object') ); else return false; }
-function isString(myVar){ return varType(myVar) == 'string'; }
-function isFunction(myVar){ return myVar instanceof Function; }
-function isArray(myVar){ return myVar instanceof Array; }
-function isNumber(myVar){ return varType(myVar) == 'number'; }
-
-
-
-if (!Array.prototype.clone) {
-	Array.prototype.clone = function(){
-		var dolly = [];
-		Array.prototype.push.apply(dolly,this);
-		//this.forEach(function(o){ if(isFunction( (o || {}).clone ) ) dolly.push(o.clone()); else dolly.push(o); });
-		return dolly;
-	};
-}
-
-if (!Array.prototype.sortBy) {
-	Array.prototype.sortBy = function(){
-        if( arguments.length ) {
-            var prefs = arguments;
-            if( isArray(arguments[0]) ) prefs = arguments[0];
-            this.sort(function(a,b){
-                var level = 0;
-                
-                while( key = prefs[level++] ) {
-                    if ( Object.key(a,key) < Object.key(b,key) )
-                        return -1;
-                    if ( Object.key(a,key) > Object.key(b,key) )
-                        return 1;
-                }
-                if( a < b ) return -1;
-                if( a > b ) return 1;
-                return 0;
-            });
-        }
-        return this;
-	};
-}
-
-if (!Object.clone) {
-	Object.clone = function(o){
-		var dolly = {};
-		if( o === undefined ) return o;
-		if( isArray(o) ) return o.clone();
-		if( o.cloneNode ) return o.cloneNode();
-		for( var key in o ) dolly[key] = isFunction( (o[key] || {}).clone ) ? o[key].clone() : o[key];
-		return dolly;
-	};
-}
-
-if (!Object.key) {
-	Object.key = function(o,full_key,value){
-	    if(!o) return false;
-		var keys = full_key.split('.'), in_keys = o;
-		if(value) {
-            if(keys.length) {
-                var key = keys.shift(), next_key;
-                while( next_key = keys.shift() ) {
-                    if( !o[key] ) o[key] = {};
-                    o = o[key];
-                    key = next_key;
-                }
-                o[key] = value;
-            }
-            return value;
-		} else {
-            for(var k=0, len = keys.length;k<len;k++) {
-               if(in_keys[keys[k]] === undefined) return false;
-               in_keys = in_keys[keys[k]] || {};
-            }
-            return in_keys;
-		}
-	};
-}
-
+// ------------------------------------------------------
+//      string script
+// ------------------------------------------------------
 
 (function(){
 	
@@ -315,16 +338,16 @@ if (!Object.key) {
     }
     
     $script.modelQuery = function(model,selector) {
-    	selector = selector.trim();
-    	if( /^\'.*\'$/.test(selector) ) return [selector.match(/^\'(.*)\'$/)[1]];
-    	
+		selector = selector.trim();
+		if( /^\'.*\'$/.test(selector) ) return [selector.match(/^\'(.*)\'$/)[1]];
+		
 		var path = selector.split('/'), step, parent;
 		while( step = path.shift() ) {
 			if( step != '.' ) {
 				if( step == '..' ) model = model._parent || {};
 				else {
 					parent = model;
-					model = Object.key(model,step);
+					model = _.key(model,step);
 					model._parent = parent;
 				}
 			}
@@ -343,9 +366,7 @@ if (!Object.key) {
 		if( isFunction(each) ){
 			if( isArray(model) ) {
 				model.forEach(eachItem);
-			} else if( isObject(model) ) {
-				Object.keys(model).forEach(function(key){ eachItem(model[key]); });
-			}
+			} else if( isObject(model) ) _.keys(model).forEach(function(key){ eachItem(model[key]); });
 		}
 		return model;
 	}
@@ -472,7 +493,7 @@ if (!Object.key) {
                     result += $script._run(tokens,submodel);
                 });
             } else if( selected_object instanceof Object ) {
-                Object.keys(selected_object).forEach(function(key){
+                _.keys(selected_object).forEach(function(key){
                     var submodel = { _parent: model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
                     result += $script._run(tokens,submodel);
@@ -504,7 +525,7 @@ if (!String.prototype.replaceKeys) {
     if(!keys) return this;
     
     var str = this.replace(/\$\{\s*(.*)\s*\?\s*(.+)\s*\:\s*(.+)\s*\}/, function(match, condition, if_true, if_false) {
-        var cond = Object.key(keys,condition);
+        var cond = _.key(keys,condition);
         if( isFunction(cond) ) {
             if( cond.apply(keys) ) return '${'+if_true+'}';
             else return '${'+if_false+'}';
@@ -518,7 +539,7 @@ if (!String.prototype.replaceKeys) {
         if( aux && aux[1] !== undefined ) {
             return aux[1];
         } else if(/\./.test(key)) {
-            value = Object.key(keys,key);
+            value = _.key(keys,key);
             if( isFunction(value) ) return value.apply(keys);
             else return ( value === false ) ? (args.clean?'':match) : value;
        } else {
@@ -731,10 +752,13 @@ var $cookies = new (function(){
     
     /* MODEL HANDLERS */
     
-    /*$.event.props.push('dataTransfer');
+    //$.event.props.push('dataTransfer');
     
     $.fn.getKeys = function(filter) {
-        var jThis = $(this);
+    	//console.log(this.get(0)getKeys());
+    	return this.get(0).getKeys();
+    	
+        /*var jThis = $(this);
         switch(jThis.prop('nodeName').toLowerCase()) {
             case 'table': jThis = jThis.find('>tbody>tr'); break;
         }
@@ -765,7 +789,7 @@ var $cookies = new (function(){
                             if( /^select|input|textarea$/i.test(jInput.prop('nodeName')) ){
                                 var name = jInput.attr('name');
                                 if(!jInput.is(':disabled')) {
-                                    Object.key(item,name,jInput.val());
+                                    _.key(item,name,jInput.val());
                                     // if( item[name] != undefined ) {
                                     //     if( item[name].push ) item[name].push(jInput.val() || '');
                                     //     else item[name] = [item[name],jInput.val() || ''];
@@ -788,8 +812,8 @@ var $cookies = new (function(){
             var items = [];
             jThis.each(function(){ items.push($(this).getKeys()); });
             return items;
-        } else return false;
-   };*/
+        } else return false;*/
+   };
    
 })( jQuery );
 
@@ -901,18 +925,14 @@ if( !HTMLSelectElement.prototype.val ) {
     }
 }
 
-if( !HTMLFormElement.prototype.getKeys ) {
-    HTMLFormElement.prototype.getKeys = function(){
+if( !Element.prototype.getKeys ) {
+    Element.prototype.getKeys = function(){
         var item = {};
         this.find('[name]').each(function(input){
             if( /^select|input|textarea$/i.test(input.nodeName) ){
                 var name = input.attr('name');
                 if(!input.attr('disabled')) {
-                    Object.key(item,name,input.val());
-                    /*if( item[name] != undefined ) {
-                        if( item[name].push ) item[name].push(input.val() || '');
-                        else item[name] = [item[name],input.val() || ''];
-                    } else item[name] = input.val() || '';*/
+                    _.key(item,name,input.val());
                 }
             }
         });
@@ -945,6 +965,8 @@ if( !Element.prototype.find )
     
     listDOM.prototype = new Array();
     
+    listDOM.prototype.isdom = function(){};
+    
     listDOM.fn = function(name,elementDo,collectionDo) {
         if( isString(name) ) {
             if( isFunction(elementDo) ) {
@@ -955,7 +977,7 @@ if( !Element.prototype.find )
 	            NodeList.prototype[name] = collectionDo;
             }
         } else if( isObject(name) && arguments.length == 1 ) {
-            Object.keys(name).forEach(function(key){
+            _.keys(name).forEach(function(key){
                 listDOM.fn(key,name[key].element,name[key].collection);
             });
         }
@@ -1254,7 +1276,14 @@ if( !Element.prototype.find )
         }
     });
     
-    window.$dom = function(selector){ return new listDOM(selector); };
+    window.$dom = function(selector){
+    	if( /^\<\w+.*\>$/.test(selector) ) {
+    		var el = document.createElement('div');
+    		el.innerHTML = selector;
+    		return new listDOM(el.children);
+    	}
+    	return new listDOM(selector);
+    };
     
     document.find = function(selector){ return $dom(selector); };
     
@@ -1301,16 +1330,15 @@ if( !Element.prototype.find )
                     if( isFunction(args.done) ) args.done.apply(null,[tmpl]);
                     return tmpl;
                 } else {
-                    $.ajax({
-                        type: "GET",
-                        url: '/templates/'+name+'.html',
-                        dataType: 'text',
-                        global: false, async: !!args.async,
-                        success: function(tmpl){
+                    $ajax('/templates/'+name+'.html',{
+                        method: "GET",
+                        mode: 'text',
+                        async: !!args.async,
+                        done: function(tmpl){
                             
-                            /*tmpl = tmpl.replace(/<template /g,'<script type="text/x-template" ').replace(/<\/template>/g,'</script>');
+                            //tmpl = tmpl.replace(/<template /g,'<script type="text/x-template" ').replace(/<\/template>/g,'</script>');
                             
-                            var jTmpl = $('<div>'+tmpl+'</div>');
+                            /*var jTmpl = $('<div>'+tmpl+'</div>');
                             jTmpl.extractTemplates();
                             templates[name] = jTmpl.html();*/
                             
@@ -1331,8 +1359,9 @@ if( !Element.prototype.find )
                             
                             if( isFunction(args.done) ) args.done.apply(null,[ $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.clearKeys }).i18n() ]);
                         }
-                    }).fail(function(jqXHR, textStatus, errorThrown){
-                        if( isFunction(args.done) ) args.done.apply(null,[ '<div class="error">['+jqXHR.status+'] '+textStatus+'</div>' ]);
+                    }).fail(function(xhr, data){
+                        //if( isFunction(args.done) ) args.done.apply(null,[ '<div class="error">['+jqXHR.status+'] '+textStatus+'</div>' ]);
+                        console.log('ajax template: '+name+' fail',xhr,data);
                     });
                     if( !args.async ) {
                         if( templates[name] ) return $html.replaceKeys(templates[name],args.replaceKeys,{ clean: args.clearKeys }).i18n();
@@ -1360,7 +1389,7 @@ if( !Element.prototype.find )
         };
         
         this.render_runPlugins = function(jRender,args){
-            Object.keys(render_plugins).forEach(function(selector){
+            _.keys(render_plugins).forEach(function(selector){
                 jRender.find(selector).each(function(){
                     render_plugins[selector].apply(this,[args]);
                 });
@@ -1378,7 +1407,7 @@ if( !Element.prototype.find )
         };
         
         this.runPlugins = function(jRender,args){
-            Object.keys(plugins).forEach(function(selector){
+            _.keys(plugins).forEach(function(selector){
                 jRender.find(selector).each(function(){
                     plugins[selector].apply(this,[args]);
                 });
@@ -1499,18 +1528,20 @@ if( !Element.prototype.find )
                     replaceKeys: args.replaceKeys,
                     done: function(tmpl){
                         var done = args.done; args.done = false;
-                        if( args.model && Mustache != undefined ) {
+                        if( args.model ) tmpl = tmpl.render(model);
+                        /*if( args.model && Mustache != undefined ) {
                             tmpl = Mustache.render(tmpl,args.model);
-                        }
+                        }*/
                         $(target).render(tmpl,args);
                         if( isFunction(done) ) done.apply(target);
                     }
                 });
             } else {
                 var tmpl = $html.template(name,{ replaceKeys: args.replaceKeys });
-                if( args.model && Mustache != undefined ) {
+                /*if( args.model && Mustache != undefined ) {
                     tmpl = Mustache.render(tmpl,args.model);
-                }
+                }*/
+                if( args.model ) tmpl = tmpl.render(model);
                 $(target).render(tmpl,args);
             }
         }
@@ -1554,13 +1585,21 @@ if( !Element.prototype.find )
             		if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
             	});
             } else if( args.template ) {
-                if( !$html.templateLoaded(args.template) ) {
+                //if( !$html.templateLoaded(args.template) ) {
                     //jModalBody.render($html.template('loading/dark'));
                     //jModalBody.children().addClass('loading-2x');
-                }
-                jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, model: args.model, done: function(){
+                //}
+                $html.template(args.template,function(tmpl){
+                	//console.log(tmpl,args);
+                	if( args.model ) tmpl = tmpl.render(args.model);
+                	jModalBody.render(tmpl);
                 	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
-                } });
+                });
+                
+                
+                /*jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, model: args.model, done: function(){
+                	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
+                } });*/
             } else if( args.iframe ) {
                 jModalBody.html('<iframe style="width: 100%; height: 100%;" src="'+args.iframe+'" frameborder="0"></iframe>');
             }
@@ -1618,8 +1657,9 @@ $(document).on('engine.ready',function(){
 // ------------------------------------------------------
 //      $user
 // ------------------------------------------------------
+//	OK
 
-(function( $ ){
+(function( ){
     
     var user = new (function(){
         this._data = false;
@@ -1633,10 +1673,10 @@ $(document).on('engine.ready',function(){
         this.status = function(callback){
             if(typeof callback == 'boolean') { async = !callback; callback = function(){} } else async = true;
             
-            $.ajax(user.url,{
-              type: 'GET', async: async,
-              contentType : 'application/json',
-              success: function(response){
+            $ajax(user.url,{
+              method: 'GET', async: async,
+              mode : 'json',
+              done: function(response){
                 user._data = response;
                 if(isFunction(callback)) callback.apply(user);
               }
@@ -1680,9 +1720,7 @@ $(document).on('engine.ready',function(){
             if( args.uname ) login_data.uname = args.uname;
             if( args.email ) login_data.email = args.email;
             
-            return $ajax.postJSON(user.url,{
-              data: login_data
-            }).done(function(data, textStatus, jqXHR){
+            return $ajax(user.url,{ mode: 'json' }).post(login_data).done(function(data, textStatus, jqXHR){
                 user._data = data;
                 if( isFunction(args.onSuccess) ) args.onSuccess.apply(user,[user._data]);
                 if( isFunction(args.onAlways) ) args.onAlways.apply(user,[user._data]);
@@ -1699,23 +1737,22 @@ $(document).on('engine.ready',function(){
         }
         
         this.logOut = function(args) {
-            if( arguments.length == 1 ) {
-                args = arguments[0];
-                if( isFunction(args) ) { user.on.logOut = args; return true; }
-            }
+        	if( isFunction(args) ) {
+        		user.on.logOut = args; return true;
+        	} else if( !args ) args = {};
             
-            return $.ajax(user.url,{
-              type: 'DELETE',
-              contentType : 'application/json'
+            return $ajax(user.url,{
+              method: 'DELETE',
+              mode : 'json'
             }).done(function(data, textStatus, jqXHR){
                 user._data = data;
-                try{ args.onSuccess(user,[user._data]); } catch(err){}
-                try{ user.on.logOut(user,[user._data]); } catch(err){}
+                if( isFunction(args.onSuccess) ) args.onSuccess.apply(user,[user._data]);
+                if( isFunction(user.on.logOut) ) user.on.logOut.apply(user,[user._data]);
                 this._data = false;
                 $(document).trigger('user.logged-out');
                 $(document).trigger('user.change');
-            }).fail(function(jqXHR, textStatus, errorThrown){
-                try{ args.onError(user,[user._data]); } catch(err){}
+            }).fail(function(xhr){
+            	if( isFunction(args.onError) ) args.onError.apply(user,[user._data]);
             });
         }
         
@@ -1725,7 +1762,7 @@ $(document).on('engine.ready',function(){
     
     window.$user = user;
 
-})( jQuery );
+})( );
 
 // ------------------------------------------------------
 //      $model
@@ -1883,7 +1920,7 @@ $(document).on('engine.ready',function(){
     modelHandler.prototype.loadDependencies = function(args){
         if( isFunction(args) ) args = { done: args };
         else if( !isObject(args) ) args = {};
-        var table = core_models[this.name], index_keys = Object.keys(table.indexes);
+        var table = core_models[this.name], index_keys = _.keys(table.indexes);
         
         if( index_keys.length ) {
         
@@ -1900,7 +1937,7 @@ $(document).on('engine.ready',function(){
                         done: function(){
                             _model(model_name).loadDependencies({ async: true, done: function(){
                                 delete pending[model_name];
-                                if( !Object.keys(pending).length ) args.done.apply(table);
+                                if( !_.keys(pending).length ) args.done.apply(table);
                             } });
                         }
                     });
@@ -1915,7 +1952,7 @@ $(document).on('engine.ready',function(){
     modelHandler.prototype.updateList = function() {
     	var table = core_models[this.name];
     	table.list = [];
-        Object.keys(table.index).forEach(function(i){ table.list[table.index[i]] = parseInt(i); });
+        _.keys(table.index).forEach(function(i){ table.list[table.index[i]] = parseInt(i); });
     }
     
     modelHandler.prototype.set = function(table_data) {
@@ -1982,7 +2019,7 @@ $(document).on('engine.ready',function(){
                 if( isNumber(data_index) ) {
                     var item = {}, src_item = table.data[parseInt(data_index)];
                     
-                    Object.keys(src_item).forEach(function(key){
+                    _.keys(src_item).forEach(function(key){
                         var indexed_table = table.indexes[key];
                         
                         if( indexed_table != undefined ) {
@@ -2091,7 +2128,7 @@ $(document).on('engine.ready',function(){
             	if( id = parseInt(model_data.id) ) {
             		var item = table.data[table.index[id]];
             		
-            		Object.keys(response.data).forEach(function(key){
+            		_.keys(response.data).forEach(function(key){
             			item[key] = response.data[key];
             		});
             		
@@ -2141,7 +2178,7 @@ $(document).on('engine.ready',function(){
         			done: function(data){
         				delete pending[selector];
         				json[selector] = data;
-        				if( Object.keys(pending).length == 0 ) {
+        				if( _.keys(pending).length == 0 ) {
         					if( isFunction(args.done) ) args.done.apply(model,[json]);
         				}
         			}, async: args.async
@@ -2154,7 +2191,7 @@ $(document).on('engine.ready',function(){
         		if( isFunction(args.done) ) args.done.apply(model,[core_models[selectors]]);
         		return core_models[selectors];
         	} else {
-        	    //console.log('model required '+selectors+', args: '+Object.keys(args));
+        	    //console.log('model required '+selectors+', args: '+_.keys(args));
         	    if( args.reload ) _model(selectors).clear();
 		        return _model(selectors).get(args.done);
         	}
@@ -2196,13 +2233,13 @@ $(function(){
             var item_name = match[1];
             
             model.get(function(items){
-                if( jThis.attr('model-sortby') ) items.sortBy( jThis.attr('model-sortby').split(',') );
+                if( jThis.attr('model-sortby') ) _.sortBy(items,jThis.attr('model-sortby').split(',') );
                 
             	items.forEach(function(model_item){
             	    if(model_item.status == 'deleted') return false;
             	    
             		var item = model_item;
-            		item_path = items_path.clone();
+            		item_path = _.clone(items_path);
 	            	while( path_step = item_path.shift() ) {
 	            		if( item[path_step] ) item = item[path_step];
 	            		else return false;
@@ -2216,7 +2253,7 @@ $(function(){
                     
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
                     if( isObject(item.$is) ) {
-                        Object.keys(item.$is).forEach(function(prop){
+                        _.keys(item.$is).forEach(function(prop){
                             if( item.$is[prop] ) jItem.addClass('is-'+prop);
                         });
                     }
@@ -2226,7 +2263,7 @@ $(function(){
                 jParent.attr('model-name',model.name);
                 jParent.on('model.updated',function(e,model_item){
                 	var item = model_item;
-            		item_path = items_path.clone();
+            		item_path = _.clone(items_path);
 	            	while( path_step = item_path.shift() ) {
 	            		if( item[path_step] ) item = item[path_step];
 	            		else return false;
@@ -2237,7 +2274,7 @@ $(function(){
                     jItem = $(template.replaceKeys(keys,{ clean: true }).i18n()).attr('model-item',model.name+'/'+item.id);
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
                     if( isObject(item.$is) ) {
-                        Object.keys(item.$is).forEach(function(prop){
+                        _.keys(item.$is).forEach(function(prop){
                             if( item.$is[prop] ) jItem.addClass('is-'+prop);
                         });
                     }
@@ -2247,7 +2284,7 @@ $(function(){
                 });
                 jParent.on('model.new',function(e,model_item){
                 	var item = model_item;
-            		item_path = items_path.clone();
+            		item_path = _.clone(items_path);
 	            	while( path_step = item_path.shift() ) {
 	            		if( item[path_step] ) item = item[path_step];
 	            		else return false;
@@ -2310,6 +2347,7 @@ $(function(){
 // ------------------------------------------------------
 //      $gears
 // ------------------------------------------------------
+//	OK
 
 (function( $ ){
 	
@@ -2336,7 +2374,7 @@ $(function(){
             } else {
                 $ajax('/gears/'+gear_name+'.gear',{
                     async: ( ( args.async === undefined ) ? ( isFunction(args.done) ? true : false ) : args.async ),
-                }).done(function(data){
+                }).get().done(function(data){
                 	var gear;
                     try{
                     	eval('gear = new (function(){'+data+'})();');
@@ -2376,8 +2414,8 @@ $(function(){
 (function( $html ){
     
     $html.plugin('[data-gear]',function(){
-        $gear($(this).attr('data-gear')).run();
-        console.log('[data-gear='+$(this).attr('data-gear')+']');
+        $gear(this.attr('data-gear')).run();
+        console.log('[data-gear='+this.attr('data-gear')+']');
     });
     
 })($html);
@@ -2426,14 +2464,14 @@ $(function(){
                     else return function(){};
                 }
             } else if( /^html[a-z]+element$/.test(varType(selector)) ) {
-                Object.keys(clickHandlers).forEach(function(key){
-                    if( isFunction(clickHandlers[key]) && $(selector).filter(key).length ) {
+                _.keys(clickHandlers).forEach(function(key){
+                    if( isFunction(clickHandlers[key]) && $dom(selector).filter(key).length ) {
                         clickHandlers[key].apply(selector,[action]);
                         return true;
                     }
                 });
             } else if( isObject(selector,'jquery') ) {
-                Object.keys(clickHandlers).forEach(function(key){
+                _.keys(clickHandlers).forEach(function(key){
                     if( isFunction(clickHandlers[key]) && selector.filter(key).length ) {
                         clickHandlers[key].apply(selector.get(0),[action]);
                         return true;
