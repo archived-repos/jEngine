@@ -93,20 +93,20 @@ jEngine
 		
 		returns a collection of DOM Elements in a Array object with following methods:
 			
-			- .get()
-			- .find('#css.selector')
-			- .filter('#css.selector')
-			- .children('[css].selector')
-			- .data(value?)
-			- .attr(value?)
-			- .addClass('class')
-			- .removeClass('class')
-			- .hasClass('class')
-			- .parent()
-			- .render()		//  like jQuery.html()
-			- .on(event,handler)
-			- .off(event)
-			- .trigger(data)
+			[].get()
+			[].find('#css.selector')
+			[].filter('#css.selector')
+			[].children('[css].selector')
+			[].data(value?)
+			[].attr(value?)
+			[].addClass('class')
+			[].removeClass('class')
+			[].hasClass('class')
+			[].parent()
+			[].render()		//  like jQuery.html()
+			[].on(event,handler)
+			[].off(event)
+			[].trigger(data)
 			
 ##### $html
 	
