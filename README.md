@@ -1,7 +1,7 @@
 jEngine
 =======
 
->	jEngine - This script enhances jQuery providing common useful methods.
+>	jEngine - A Powerful javascript framework to build your website or application.
 
 >	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 
@@ -11,16 +11,9 @@ jEngine
 
 =======
 
-##### Requirements
 
-jquery 2.x, developed using jquery-2.0.3.js
+##### BASICS (Underscore)
 
-
-##### How to use
-
-    <head>
-      ...
-      <script src="vendor/jquery-2.0.3.js"></script>
-      <script src="assets/jPower.js" defer="defer"></script>
-      ...
-    </head>
+    _.stopEvent(e)    preventDefault() alias
+	
+    _.triggerEvent(element,event_name,data)
