@@ -151,7 +151,7 @@ function varType(obj){
 }
 
 
-function isObject(myVar,type){ if( typeof(myVar) == 'object' ) return ( type == 'any' ) ? true : ( varType(myVar) == (type || 'object') ); else return false; }
+function isObject(myVar,type){ if( myVar instanceof Object ) return ( type == 'any' ) ? true : ( varType(myVar) == (type || 'object') ); else return false; }
 function isString(myVar){ return varType(myVar) == 'string'; }
 function isFunction(myVar){ return myVar instanceof Function; }
 function isArray(myVar){ return myVar instanceof Array; }
@@ -235,6 +235,166 @@ if (!Object.key) {
             return in_keys;
 		}
 	};
+}
+
+
+(function(){
+	
+	function $script(tmpl){
+        var texts = tmpl.split(splitRex),
+            list = [texts.shift()];
+            
+        tmpl.replace(matchRex,function(match,cmd,arg){ list.push({ cmd: cmd, arg: arg }); list.push(texts.shift()); });
+        
+        return parseTokens('root',false,list);
+    }
+    
+    $script.cmd = function(cmd_name,handler){ if( isString(cmd_name) && isFunction(handler) ) cmd[cmd_name] = handler; };
+    
+    var cmd = {},
+        splitRex = /\$\w*{[\!\/\w\s\_\-\.]+}/,
+        matchRex = /\$(\w*){([\!\/\w\s\_\-\.]+)}/g;
+    
+    $script._run = function(tokens,model) {
+        var result = '';
+            
+        tokens.forEach(function(token){
+            if( isString(token) ) result += token;
+            else if( isObject(token,'modelscript') ) result += token.render(model);
+        });
+        
+        return result;
+    }
+    
+    cmd.root = function(model,arg,content){ return content; };
+        
+    cmd.var = function(model,arg,content){ return Object.key(model,arg); };
+    
+    cmd.if = function(model,arg,content,otherwise){
+		if( arg.substr(0,1) == '!' ) {
+			arg = arg.substr(1).trim();
+			return (Object.key(model,arg || '') ? otherwise : content);
+		}
+		return (Object.key(model,arg || '') ? content : otherwise);
+    };
+    
+    function modelScript(cmd,arg,options,list){
+        this.cmd = cmd;
+        this.arg = arg;
+        this._ = options || {};
+        this.list = list || [];
+    }
+    
+    modelScript.prototype.render = function(model){
+        var tokens;
+        
+        if( cmd[this.cmd] instanceof Function ) {
+            var params = [model || {}]; params.push(this.arg); [].push.apply(params,this.list);
+            //console.log(this.cmd,params);
+            tokens = cmd[this.cmd].apply(this,params);
+        } else return '[command '+this.cmd+' not found]';
+        
+        if( isArray(tokens) ) return $script._run(tokens,model);
+        else if( isString(tokens) ) return tokens;
+        return '';
+    }
+    
+    function parseTokens(cmd,arg,tokens) {
+    	cmd = (cmd || '').trim();
+        arg = (arg || '').trim();
+        
+        var options = { content: [] },
+            current_option = 'content',
+            list = [ options.content ],
+            nextOption = function(option_name) {
+                options[option_name] = []; current_option = option_name; list.push(options[option_name]);
+            };
+        
+        token = tokens.shift()
+        while( token !== undefined ){
+            
+            //console.log(cmd,',',arg,',',token);
+            
+            if( isString(token) ) options[current_option].push(token);
+            else if( token instanceof Object ) {
+                if( token.cmd ) {
+                    
+                    switch(token.cmd) {
+                        case 'case':
+                        case 'when':
+                            nextOption(token.arg);
+                            break;
+                        default: // cmd is like a helper
+                        	if( arg.substr(-1) == '/' ) options[current_option].push(new modelScript(token.cmd,token.arg));
+                            else options[current_option].push(parseTokens(token.cmd,token.arg,tokens));
+                            break;
+                    }
+                    
+                } else switch(token.arg) {
+                    case 'else': nextOption('alt'); break;
+                    case 'otherwise': nextOption(token.arg); break;
+                    case '/':
+                        return new modelScript(cmd,arg,options,list); // base case
+                        break;
+                    default:
+                        options[current_option].push(new modelScript('var',token.arg));
+                        break;
+                }
+            }
+            token = tokens.shift()
+        }
+        if( cmd != 'root' ) console.log('something wrong in script');
+        return new modelScript(cmd,arg,options,list);
+    }
+    
+    window.$script = $script;
+    
+})();
+
+	$script.cmd('each',function(model,arg,tokens){
+	    var result = '', selected_object = false;
+	    
+	    if( /^[\w\_\-]+$/.test(arg) ) {
+            selected_object = Object.key(model,arg);
+            if( isArray(selected_object) )  selected_object.forEach(function(submodel){ result += $script._run(tokens,submodel); });
+            else if( selected_object instanceof Object )  Object.keys(selected_object).forEach(function(key){ result += $script._run(tokens,selected_object[key]); });
+        }
+        return result;
+    });
+    
+    $script.cmd('for',function(model,arg,tokens){
+	    var result = '', selected_object = false;
+	    
+	    function _run(var_name,object_selector){
+            selected_object = Object.key(model,object_selector);
+            if( isArray(selected_object) ) {
+                selected_object.forEach(function(item){
+                    var submodel = {}; submodel[var_name] = item;
+                    result += $script._run(tokens,submodel);
+                });
+            } else if( selected_object instanceof Object ) {
+                Object.keys(selected_object).forEach(function(key){
+                    var submodel = {}; submodel[var_name] = selected_object[key];
+                    result += $script._run(tokens,submodel);
+                });
+            }
+        }
+	    
+        if( /^\s*[\w\.\_\-]+\s+in\s+[\w\.\_\-]+\s*$/.test(arg) ) {
+        	console.log('each',arguments);
+            var params = arg.match(/^\s*([\w\.\_\-]+)\s+in\s+([\w\.\_\-]+)\s*$/);
+            _run(params[1],params[2]);
+        }
+        return result;
+    });
+
+window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks} tarea: ${.}${/} ${hola.caracola}');
+
+if (!String.prototype.render) {
+	String.prototype.render = function(model){
+		if( !this.$script ) this.$script = $script(this);
+		return this.$script.render(model);
+	}
 }
 
 // function String.replaceKeys(item)
