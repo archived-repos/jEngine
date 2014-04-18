@@ -77,3 +77,48 @@ jEngine
 		'$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show'.render({ list: [ 'item1', 'item2' ] });
 		
 		
+##### String.prototype
+
+	'some text'.capitalize()      >  'Some text'
+	'some text'.capitalize(true)  >  'Some Text'
+	
+	'17/04/2014'.toDate()         >  Date (Thu Apr 17 2014 00:00:00 GMT+0200 -Hora de verano romance-)
+	
+	
+##### $dom
+
+	$dom is a DOM query (jQuery $ like)
+	
+	$dom('#css.selector'|HTMLElement|NodeList)
+		
+		returns a collection of DOM Elements in a Array object with following methods:
+			
+			- .get()
+			- .find('#css.selector')
+			- .filter('#css.selector')
+			- .children('[css].selector')
+			- .data(value?)
+			- .attr(value?)
+			- .addClass('class')
+			- .removeClass('class')
+			- .hasClass('class')
+			- .parent()
+			- .render()		//  like jQuery.html()
+			- .on(event,handler)
+			- .off(event)
+			- .trigger(data)
+			
+##### $html
+	
+	$html.template(template_name,template_string)
+	
+	$html.plugin('#css.selector',initializer)
+
+	$html.modal({
+		? template: '<div>some template</div>' | $html.template('template/name')
+		? model: { crash: { test: 'dummy' } }
+	})
+		
+	
+	
+	
