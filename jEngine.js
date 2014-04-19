@@ -565,7 +565,7 @@ if (!String.prototype.replaceKeys) {
         }
 	});
     
-    return str.replace(/\${\s*([\w\-\_\.\']+)\s*}/g, function(match, key) {
+    return str.replace(/\${\s*([^\}']+)\s*}/g, function(match, key) {
         aux = key.trim().match(/^\'(.*)\'$/);
         if( aux && aux[1] !== undefined ) {
             return aux[1];
