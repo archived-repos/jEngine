@@ -413,7 +413,6 @@
     
     function modelScript(cmd,arg,options,list){
         this.cmd = cmd;
-        //this.arg = arg;
         this.options = options || {};
         this.options.args = arg.split(',');
         this.list = list || [];
@@ -422,8 +421,9 @@
     modelScript.prototype.render = function(model){
         var tokens;
         
-        if( cmd[this.cmd] instanceof Function ) {this.options.model = model;
+        if( cmd[this.cmd] instanceof Function ) {
             var params = [];
+            this.options.model = model;
             this.options.args.forEach(function(key){ params.push(key?$script.modelValue(model,key):''); });
             tokens = cmd[this.cmd].apply(this.options,params);
         } else return '[command '+this.cmd+' not found]';
@@ -496,11 +496,11 @@
 		return ($i18n(key,params[2]) || '$i18n{'+key+'}');
     });
 
-	$script.cmd('each',function(selected_object){
+	$script.cmd('each',function(collection){
 	    var result = '';
-	    if( selected_object ) {
-            _.each(selected_object,function(submodel){
-            	result += $script._run(this.content,submodel);
+	    if( collection ) {
+            _.each(collection,function(model){
+            	result += $script._run(this.content,model);
             });
         }
         return result;
@@ -1609,7 +1609,7 @@ if( !Element.prototype.find )
             	//jModalBody.render($html.template('loading/dark'));
                 //jModalBody.children().addClass('loading-2x');
             	jModalBody.renderHref(args.url,function(){
-            		if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
+            		if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
             	});
             } else if( args.template ) {
                 //if( !$html.templateLoaded(args.template) ) {
@@ -1620,7 +1620,7 @@ if( !Element.prototype.find )
                 	//console.log(tmpl,args);
                 	if( args.model ) tmpl = tmpl.render(args.model);
                 	jModalBody.render(tmpl);
-                	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
+                	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
                 });
                 
                 
@@ -1729,7 +1729,6 @@ $(document).on('engine.ready',function(){
                     if( form.get ) form = form.get(0);
                     if( isObject(form,'htmlformelement') ) {
                         args = form.getKeys();
-                        console.log('data: '+JSON.stringify(args));
                     } else {
                         form = false;
                         args = arguments[0];
@@ -2423,9 +2422,10 @@ $(function(){
     }
     
     gearHandler.prototype.run = function(){
+        var args = arguments;
         this.get(function(gear){
         	if(gear) {
-		        if( isFunction(gear.run) ) gear.run.apply(gear);
+		        if( isFunction(gear.run) ) gear.run.apply(gear,args);
 		    } else console.log('[warning] gear not foud: '+name);
         });
     }
@@ -2441,7 +2441,7 @@ $(function(){
 (function( $html ){
     
     $html.plugin('[data-gear]',function(){
-        $gear(this.attr('data-gear')).run();
+        $gear(this.attr('data-gear')).run(this);
         console.log('[data-gear='+this.attr('data-gear')+']');
     });
     
