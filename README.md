@@ -1,7 +1,7 @@
 jEngine
 =======
 
->	jEngine - A Powerful javascript framework to build your website or application.
+>	jEngine - A Powerful javascript framework to build your website/application.
 
 >	Copyright (C) 2014  Jesús Manuel Germade Castiñeiras
 

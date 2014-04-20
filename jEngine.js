@@ -401,7 +401,7 @@
             _.keys(model).forEach(function(key){ eval_vars += (','+key+' = model.'+key) });
             try{
             	eval('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();');
-            }catch(err){ console.log('ERROR: '+err.message+' in '); console.log('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();'); }
+            }catch(err){ console.log('ERROR: '+err.message+' in '); console.log('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();'); console.log(model); }
         }
         return value;
 	};
@@ -507,27 +507,27 @@
     });
     
     $script.cmd('for',function(){
-	    var result = '', selected_object = false;
+    	var _for = this, result = '', selected_object = false;
 	    
 	    function _run(object_selector,var_name){
-            selected_object = $script.modelQuery(model,object_selector);
+            selected_object = $script.modelQuery(_for.model,object_selector);
             if( isArray(selected_object) ) {
                 selected_object.forEach(function(item){
-                    var submodel = { _parent: model };
+                    var submodel = { _parent: _for.model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(this.content,submodel);
+                    result += $script._run(_for.content,submodel);
                 });
             } else if( selected_object instanceof Object ) {
                 _.keys(selected_object).forEach(function(key){
-                    var submodel = { _parent: model };
+                    var submodel = { _parent: _for.model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(this.content,submodel);
+                    result += $script._run(_for.content,submodel);
                 });
             }
         }
 	    
-        if( /^\s*[\w\.\_\-]+\s+in\s+[\w\.\_\-]+\s*$/.test(this.args[0]) ) {
-            var params = this.args[0].match(/^\s*([\w\.\_\-]+)\s+in\s+([\w\.\_\-]+)\s*$/);
+        if( /^\s*\S+\s+in\s+\S+\s*$/.test(this.args[0]) ) {
+            var params = this.args[0].match(/^\s*(\S+)\s+in\s+(\S+)\s*$/);
             _run(params[2],params[1]);
         }
         return result;
