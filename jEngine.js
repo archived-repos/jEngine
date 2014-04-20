@@ -171,6 +171,12 @@
 		}
 	}
 	
+	if( !window._.with ) {
+		window._.with = function(model,action){
+			
+		}
+	}
+	
 	
     function ajax(url,args){
         
@@ -368,7 +374,7 @@
 		return model || '';
     };
     
-	$script.modelEach = function(model,each) {
+	/*$script.modelEach = function(model,each) {
 		function eachItem(item){
 			if(isString(item)) {
 				item = [item]; item._parent = model._parent;
@@ -382,64 +388,48 @@
 			} else if( isObject(model) ) _.keys(model).forEach(function(key){ eachItem(model[key]); });
 		}
 		return model;
-	};
+	};*/
 	
 	$script.modelValue = function(model,arg){
-	    var value;
+        
+        // ###################    replace ../\w by \w._parent
+        
+        var value;
         if( /^[\w\_\.]+$/.test(arg) ) value = _.key(model,arg); //$script.modelQuery(model,arg);
         else {
             var eval_vars = '';
             _.keys(model).forEach(function(key){ eval_vars += (','+key+' = model.'+key) });
-            eval('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();');
+            try{
+            	eval('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();');
+            }catch(err){ console.log('ERROR: '+err.message+' in '); console.log('value = (function(){ var aux'+eval_vars+'; return ('+arg+'); })();'); }
         }
         return value;
 	};
     
-    cmd.root = function(model,arg,content){ return content; };
-        
-    cmd.var = function(model,arg,content){
-        var value = $script.modelValue(model,arg);
-        return (value instanceof Object) ? '' : value || '';
-    };
-    
-    cmd.if = function(model,arg,content,otherwise){
-		if( !arg ) return '';
-		var value = $script.modelValue(model,arg);
-		console.log('model',model);
-		console.log('arg',arg);
-		console.log('value',value);
-		return $script.modelValue(model,arg) ? content : otherwise;
-    };
-    
+    cmd.root = function(){ return this.content; };
+    cmd.var = function(value){ return (value instanceof Object) ? '' : value || ''; };
+    cmd.if = function(cond){ return cond ? this.content : this.otherwise; };
     cmd['?'] = cmd.if;
-    
-    cmd.i18n = function(model,arg){
-		var params = (arg || '').match(/((\w+)\:)?(.*)/)
-		    key = $script.modelValue(model,params[3]);
-		return $i18n(key,params[2]) || '$i18n{'+key+'}';
-    }
-    
-    //cmd.string = function(model,arg,content){ return content; }
     
     function modelScript(cmd,arg,options,list){
         this.cmd = cmd;
-        this.arg = arg;
-        this._ = options || {};
+        //this.arg = arg;
+        this.options = options || {};
+        this.options.args = arg.split(',');
         this.list = list || [];
     }
     
     modelScript.prototype.render = function(model){
         var tokens;
         
-        if( cmd[this.cmd] instanceof Function ) {
-            var params = [model || {}]; params.push(this.arg); [].push.apply(params,this.list);
-            tokens = cmd[this.cmd].apply(this,params);
+        if( cmd[this.cmd] instanceof Function ) {this.options.model = model;
+            var params = [];
+            this.options.args.forEach(function(key){ params.push(key?$script.modelValue(model,key):''); });
+            tokens = cmd[this.cmd].apply(this.options,params);
         } else return '[command '+this.cmd+' not found]';
         
         if( isArray(tokens) ) return $script._run(tokens,model);
         else if( isString(tokens) ) return tokens;
-        //else if( tokens ) return [tokens];
-        //else if( isNumber(tokens) ) return ''+tokens;
         return '' + tokens;
     }
     
@@ -478,8 +468,8 @@
                     }
                     
                 } else switch(token.arg) {
-                    case 'else': nextOption('alt'); break;
-                    case 'otherwise': nextOption(token.arg); break;
+                    case 'else':
+                    case 'otherwise': nextOption('otherwise'); break;
                     case '/':
                         return new modelScript(cmd,arg,options,list); // base case
                         break;
@@ -498,19 +488,25 @@
     
 })();
 
-	$script.cmd('each',function(model,arg,tokens){
-	    var result = '', selected_object = false;
-	    
-	    if( /^[\w\_\-]+$/.test(arg) ) {
-            selected_object = $script.modelQuery(model,arg);
-            $script.modelEach(selected_object,function(submodel){
-            	result += $script._run(tokens,submodel);
+	$script.cmd('i18n',function(){
+		console.log('i18n',this);
+		var params = (this.args[0] || '').match(/((\w+)\:)?(.*)/)
+		    key = $script.modelValue(this.model,params[3]);
+		    //console.log('i18n',key,params[2],($i18n(key,params[2]) || '$i18n{'+key+'}'));
+		return ($i18n(key,params[2]) || '$i18n{'+key+'}');
+    });
+
+	$script.cmd('each',function(selected_object){
+	    var result = '';
+	    if( selected_object ) {
+            _.each(selected_object,function(submodel){
+            	result += $script._run(this.content,submodel);
             });
         }
         return result;
     });
     
-    $script.cmd('for',function(model,arg,tokens){
+    $script.cmd('for',function(){
 	    var result = '', selected_object = false;
 	    
 	    function _run(object_selector,var_name){
@@ -519,25 +515,25 @@
                 selected_object.forEach(function(item){
                     var submodel = { _parent: model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(tokens,submodel);
+                    result += $script._run(this.content,submodel);
                 });
             } else if( selected_object instanceof Object ) {
                 _.keys(selected_object).forEach(function(key){
                     var submodel = { _parent: model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(tokens,submodel);
+                    result += $script._run(this.content,submodel);
                 });
             }
         }
 	    
-        if( /^\s*[\w\.\_\-]+\s+in\s+[\w\.\_\-]+\s*$/.test(arg) ) {
-            var params = arg.match(/^\s*([\w\.\_\-]+)\s+in\s+([\w\.\_\-]+)\s*$/);
+        if( /^\s*[\w\.\_\-]+\s+in\s+[\w\.\_\-]+\s*$/.test(this.args[0]) ) {
+            var params = this.args[0].match(/^\s*([\w\.\_\-]+)\s+in\s+([\w\.\_\-]+)\s*$/);
             _run(params[2],params[1]);
         }
         return result;
     });
     
-    $script.cmd('with',function(model,arg,content){ return $script._run(content,$script.modelQuery(model,arg)); });
+    $script.cmd('with',function(){ return $script._run(this.content,$script.modelQuery(this.model,this.args[0])); });
 
 //window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
