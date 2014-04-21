@@ -66,7 +66,7 @@ jEngine
 
 	template script example:
 	
-		var template_script = $script('$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show');
+		var template_script = $script('$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show${/}');
 		
 		result = template_script.render({ list: [ 'item1', 'item2' ] });
 		
@@ -74,7 +74,7 @@ jEngine
 	
 	or just ( using String.render() )
 	
-		'$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show'.render({ list: [ 'item1', 'item2' ] });
+		'$if{list}list items: $for{item in list}[${item}]${/}${else}nothing to show${/}'.render({ list: [ 'item1', 'item2' ] });
 		
 		
 ##### String.prototype

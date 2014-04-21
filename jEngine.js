@@ -2274,7 +2274,7 @@ $(function(){
                     var keys = {};
                     keys[item_name] = item;
                     
-                    var jItem = $(template.replaceKeys(keys,{ clean: true }).i18n()).attr('model-item',model.name+'/'+item.id);
+                    var jItem = $(template.render(keys).i18n()).attr('model-item',model.name+'/'+item.id);
                     jRow[item.id] = jItem;
                     
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
