@@ -108,8 +108,9 @@
 				return value;
 			} else {
     			for(var k=0, len = keys.length;k<len;k++) {
-    				if(in_keys[keys[k]] === undefined) return false;
+    				//if( in_keys[keys[k]] === undefined ) return false;
 					in_keys = in_keys[keys[k]];
+					if( in_keys == undefined || in_keys == null ) return false;
 				}
 				return in_keys;
 			}
@@ -324,7 +325,8 @@
     var cmd = {},
         splitRex = /\$[\w\?]*{[^\}]+}|{\$}|{\:}/,
         matchRex = /(\$([\w\?]*){([^\}]+)})|({\$})|({\:})/g,
-        emptyModel = function (){ this._parent = this };
+        emptyModel = function (){ this._parent = this },
+        noParse = {};
         // splitRex = /\$[\w]*{[\!\/\w\s\_\-\.]+}/,
         // matchRex = /\$(\w*){([\!\/\w\s\_\-\.]+)}/g;
 	
@@ -342,14 +344,14 @@
         return parseTokens('root',false,list);
     }
     
-    $script.cmd = function(cmd_name,handler){ if( isString(cmd_name) && isFunction(handler) ) cmd[cmd_name] = handler; };
+    $script.cmd = function(cmd_name,handler,no_parse){ if( isString(cmd_name) && isFunction(handler) ) cmd[cmd_name] = handler; if(no_parse) noParse[cmd_name] = true; };
     
     $script._run = function(tokens,model) {
         var result = '';
             
         tokens.forEach(function(token){
             if( isString(token) ) result += token;
-            else if( isObject(token,'modelscript') ) result += token.render(model);
+            else if( isObject(token,'modelscript') ) result += token.run(model);
             else if( isArray(token) ) result += $script._run(token,model);
         });
         
@@ -418,14 +420,18 @@
         this.list = list || [];
     }
     
-    modelScript.prototype.render = function(model){
+    modelScript.prototype.run = function(model){
         var tokens;
         
         if( cmd[this.cmd] instanceof Function ) {
             var params = [];
             this.options.model = model;
-            this.options.args.forEach(function(key){ params.push(key?$script.modelValue(model,key):''); });
-            tokens = cmd[this.cmd].apply(this.options,params);
+            if( noParse[this.cmd] ) {
+            	tokens = cmd[this.cmd].apply(this.options,this.options.args);
+            } else {
+	            this.options.args.forEach(function(key){ params.push(key?$script.modelValue(model,key):''); });
+	            tokens = cmd[this.cmd].apply(this.options,params);
+            }
         } else return '[command '+this.cmd+' not found]';
         
         if( isArray(tokens) ) return $script._run(tokens,model);
@@ -489,11 +495,19 @@
 })();
 
 	$script.cmd('i18n',function(){
-		console.log('i18n',this);
+		if(arguments.length) {
+			var key = arguments[0], env = false;
+			if( arguments.length > 1 ) {
+				key = arguments[1]; env = arguments[0];
+			}
+			//console.log('i18n',arguments,key,env);
+			return ($i18n(key,env) || '$i18n{'+(env?(env+':'):'')+key+'}');
+		}
+		/*console.log('i18n',arguments);
 		var params = (this.args[0] || '').match(/((\w+)\:)?(.*)/)
 		    key = $script.modelValue(this.model,params[3]);
 		    //console.log('i18n',key,params[2],($i18n(key,params[2]) || '$i18n{'+key+'}'));
-		return ($i18n(key,params[2]) || '$i18n{'+key+'}');
+		return ($i18n(key,params[2]) || '$i18n{'+key+'}');*/
     });
 
 	$script.cmd('each',function(collection){
@@ -506,40 +520,41 @@
         return result;
     });
     
-    $script.cmd('for',function(){
-    	var _for = this, result = '', selected_object = false;
+    $script.cmd('for',function(command){
+    	var _this = this, result = '', selected_object = false;
 	    
 	    function _run(object_selector,var_name){
-            selected_object = $script.modelQuery(_for.model,object_selector);
+	    	console.log(command,_this.model,var_name);
+            selected_object = $script.modelQuery(_this.model,object_selector);
             if( isArray(selected_object) ) {
                 selected_object.forEach(function(item){
-                    var submodel = { _parent: _for.model };
+                    var submodel = { _parent: _this.model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(_for.content,submodel);
+                    result += $script._run(_this.content,submodel);
                 });
             } else if( selected_object instanceof Object ) {
                 _.keys(selected_object).forEach(function(key){
-                    var submodel = { _parent: _for.model };
+                    var submodel = { _parent: _this.model };
                     if(var_name) submodel[var_name] = item; else submodel = item;
-                    result += $script._run(_for.content,submodel);
+                    result += $script._run(_this.content,submodel);
                 });
             }
         }
 	    
-        if( /^\s*\S+\s+in\s+\S+\s*$/.test(this.args[0]) ) {
-            var params = this.args[0].match(/^\s*(\S+)\s+in\s+(\S+)\s*$/);
+        if( /^\s*\S+\s+in\s+\S+\s*$/.test(command) ) {
+            var params = command.match(/^\s*(\S+)\s+in\s+(\S+)\s*$/);
             _run(params[2],params[1]);
         }
         return result;
-    });
+    },true);
     
     $script.cmd('with',function(){ return $script._run(this.content,$script.modelQuery(this.model,this.args[0])); });
 
 //window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
-if (!String.prototype.render) {
-	String.prototype.render = function(model){
-		return $script(this).render(model);
+if (!String.prototype.run) {
+	String.prototype.run = function(model){
+		return $script(this).run(model);
 	}
 }
 
@@ -959,10 +974,12 @@ if( !Element.prototype.getKeys ) {
             if( /^select|input|textarea$/i.test(input.nodeName) ){
                 var name = input.attr('name');
                 if(!input.attr('disabled')) {
+                    //console.log(input,input.val());
                     _.key(item,name,input.val());
                 }
             }
         });
+        //console.log(this,item);
         return item;
     }
 }
@@ -1476,7 +1493,7 @@ if( !Element.prototype.find )
                     
                     jForm.on('form.submit-end',function(e){
                         jForm.removeClass('submitting');
-                        jForm.find('.submitting-disable').attr('disabled','disabled');
+                        jForm.find('.submitting-disable').removeAttr('disabled');
                     });
                     
                     jForm.trigger('form.submit',[e]);
@@ -1555,7 +1572,7 @@ if( !Element.prototype.find )
                     replaceKeys: args.replaceKeys,
                     done: function(tmpl){
                         var done = args.done; args.done = false;
-                        if( args.model ) tmpl = tmpl.render(args.model);
+                        if( args.model ) tmpl = tmpl.run(args.model);
                         /*if( args.model && Mustache != undefined ) {
                             tmpl = Mustache.render(tmpl,args.model);
                         }*/
@@ -1568,7 +1585,7 @@ if( !Element.prototype.find )
                 /*if( args.model && Mustache != undefined ) {
                     tmpl = Mustache.render(tmpl,args.model);
                 }*/
-                if( args.model ) tmpl = tmpl.render(args.model);
+                if( args.model ) tmpl = tmpl.run(args.model);
                 $(target).render(tmpl,args);
             }
         }
@@ -1618,7 +1635,7 @@ if( !Element.prototype.find )
                 //}
                 $html.template(args.template,function(tmpl){
                 	//console.log(tmpl,args);
-                	if( args.model ) tmpl = tmpl.render(args.model);
+                	if( args.model ) tmpl = tmpl.run(args.model);
                 	jModalBody.render(tmpl);
                 	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
                 });
@@ -2274,7 +2291,8 @@ $(function(){
                     var keys = {};
                     keys[item_name] = item;
                     
-                    var jItem = $(template.render(keys).i18n()).attr('model-item',model.name+'/'+item.id);
+                    console.log(template,keys);
+                    var jItem = $(template.run(keys).i18n()).attr('model-item',model.name+'/'+item.id);
                     jRow[item.id] = jItem;
                     
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
@@ -2297,7 +2315,7 @@ $(function(){
 	            	
                 	var keys = {};
                     keys[item_name] = $model(model.name).get(item.id);
-                    jItem = $(template.replaceKeys(keys,{ clean: true }).i18n()).attr('model-item',model.name+'/'+item.id);
+                    jItem = $(template.run(keys).i18n()).attr('model-item',model.name+'/'+item.id);
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
                     if( isObject(item.$is) ) {
                         _.keys(item.$is).forEach(function(prop){
@@ -2318,7 +2336,7 @@ $(function(){
 	            	
                 	var keys = {};
                     keys[item_name] = $model(model.name).get(item.id);
-                    jItem = $(template.replaceKeys(keys,{ clean: true }).i18n()).attr('model-item',model.name+'/'+item.id);
+                    jItem = $(template.run(keys).i18n()).attr('model-item',model.name+'/'+item.id);
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
                 	jRow[item.id] = jItem;
                 	jParent.prepend(jItem);
