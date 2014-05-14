@@ -1605,28 +1605,23 @@ if( !Element.prototype.find )
                     jModal.append(jModalBody);
         
         jModal.reload = function(){
-            if( args.url ) {
-            	//jModalBody.render($html.template('loading/dark'));
-                //jModalBody.children().addClass('loading-2x');
+            if( args.body ) {
+                jModalBody.render(args.body);
+            } else if( args.url ) {
+
             	jModalBody.renderHref(args.url,function(){
             		if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
             	});
+
             } else if( args.template ) {
-                //if( !$html.templateLoaded(args.template) ) {
-                    //jModalBody.render($html.template('loading/dark'));
-                    //jModalBody.children().addClass('loading-2x');
-                //}
+
                 $html.template(args.template,function(tmpl){
                 	//console.log(tmpl,args);
                 	if( args.model ) tmpl = tmpl.render(args.model);
                 	jModalBody.render(tmpl);
                 	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
                 });
-                
-                
-                /*jModalBody.renderTemplate(args.template,{ async: true, replaceKeys: args.replaceKeys || {}, model: args.model, done: function(){
-                	if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal]);
-                } });*/
+
             } else if( args.iframe ) {
                 jModalBody.html('<iframe style="width: 100%; height: 100%;" src="'+args.iframe+'" frameborder="0"></iframe>');
             }
