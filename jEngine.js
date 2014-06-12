@@ -286,6 +286,15 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
         
         return new ajaxHandler(url,args);
     }
+
+    window.$json = function(url,args){
+        args = args || {};
+        args.mode = 'json';
+
+        if( args.method ) return ajax(url,args);
+        
+        return new ajaxHandler(url,args);
+    }
     
 })();
 
@@ -563,11 +572,13 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 
 //window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
-if (!String.prototype.render) {
-	String.prototype.render = function(model){
-		return $script(this).render(model);
+if (!String.prototype.run) {
+	String.prototype.run = function(model){
+		return $script(this).run(model);
 	}
 }
+
+if (!String.prototype.render) String.prototype.render = String.prototype.run;
 
 // function String.replaceKeys(item)
 // return: replaced '{key1} some text {key2.level2}' with item: { key1: 'value1', key2: { level2: 'value2' } }
