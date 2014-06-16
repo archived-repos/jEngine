@@ -326,12 +326,16 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
     }
     
     window.$i18n = function(key,env){
-        var env = false, callback = false;
+        //var env = false, callback = false;
         
         return get_i18n(env)[key];
     };
     
     window.$i18n.get = get_i18n;
+    
+    window.$i18n.isEnv = function(env_name){
+        return !! _i18n[env_name];
+    };
     
     if( !String.prototype.i18n ) {
         String.prototype.i18n = function() {
@@ -360,8 +364,6 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
         splitRex = /\$[\w\?]*{[^\}]+}|{\$}|{\:}/,
         matchRex = /(\$([\w\?]*){([^\}]+)})|({\$})|({\:})/g,
         emptyModel = function (){ this._parent = this };
-        // splitRex = /\$[\w]*{[\!\/\w\s\_\-\.]+}/,
-        // matchRex = /\$(\w*){([\!\/\w\s\_\-\.]+)}/g;
 	
 	function $script(tmpl){
         var texts = tmpl.split(splitRex),
@@ -372,12 +374,12 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
             list.push(texts.shift());
         });
         
-        // tmpl.replace(matchRex,function(match,cmd,arg){ list.push({ cmd: cmd, arg: arg }); list.push(texts.shift()); });
-        
         return parseTokens('root',false,list);
     }
     
-    $script.cmd = function(cmd_name,handler){ if( isString(cmd_name) && isFunction(handler) ) cmd[cmd_name] = handler; };
+    $script.cmd = function(cmd_name,handler){
+    	if( isString(cmd_name) && isFunction(handler) ) cmd[cmd_name] = handler;
+    };
     
     $script._run = function(tokens,model) {
         var result = '';
@@ -408,29 +410,12 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 		}
 		return model || '';
     };
-    
-	/*$script.modelEach = function(model,each) {
-		function eachItem(item){
-			if(isString(item)) {
-				item = [item]; item._parent = model._parent;
-			} else item._parent = model;
-			each(item);
-		}
-		
-		if( isFunction(each) ){
-			if( isArray(model) ) {
-				model.forEach(eachItem);
-			} else if( isObject(model) ) _.keys(model).forEach(function(key){ eachItem(model[key]); });
-		}
-		return model;
-	};*/
 	
 	$script.modelValue = function(model,arg){
         
-        // ###################    replace ../\w by \w._parent
-        
         var value;
-        if( /^[\w\_\.]+$/.test(arg) ) value = _.key(model,arg); //$script.modelQuery(model,arg);
+        //if( /^[\w\_\.]+$/.test(arg) ) value = _.key(model,arg);
+        if( /^[\w\_\.]+$/.test(arg) ) value = $script.modelQuery(model,arg);
         else {
             var eval_vars = '';
             _.keys(model).forEach(function(key){ eval_vars += (','+key+' = model.'+key) });
@@ -442,7 +427,7 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 	};
     
     cmd.root = function(){ return this.content; };
-    cmd.var = function(value){ return (value instanceof Object) ? '' : value || ''; };
+    cmd.var = function(value){ return (value instanceof Object) ? '' : (value || ''); };
     cmd.if = function(cond){ return cond ? this.content : this.otherwise; };
     cmd['?'] = cmd.if;
     
@@ -453,7 +438,7 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
         this.list = list || [];
     }
     
-    modelScript.prototype.render = function(model){
+    modelScript.prototype.render = function(model,args){
         var tokens;
         
         if( cmd[this.cmd] instanceof Function ) {
@@ -481,8 +466,6 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
         
         token = tokens.shift()
         while( token !== undefined ){
-            
-            //console.log(cmd,',',arg,',',token);
             
             if( isString(token) ) options[current_option].push(token);
             else if( token instanceof Object ) {
@@ -525,10 +508,10 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 
 	$script.cmd('i18n',function(){
 		console.log('i18n',this);
-		var params = (this.args[0] || '').match(/((\w+)\:)?(.*)/)
+		var params = (this.args[0] || '').match(/(([\w]+)\s*\:\s*)?(.*)/),
 		    key = $script.modelValue(this.model,params[3]);
 		    //console.log('i18n',key,params[2],($i18n(key,params[2]) || '$i18n{'+key+'}'));
-		return ($i18n(key,params[2]) || '$i18n{'+key+'}');
+		return ($i18n(key,params[2]) || '$i18n{'+( params[2] ? ( params[2] + ':' ) : '' )+key+'}');
     });
 
 	$script.cmd('each',function(collection){
@@ -572,13 +555,13 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 
 //window.tmpl_script = $script('some text $if{hola}text if true${else}text if false${/}, some text $if{!hola}text if true${else}text if false${/} $each{tasks}[tarea: ${.}, ${../hola.caracola}]${/} ${hola.caracola}');
 
-if (!String.prototype.run) {
-	String.prototype.run = function(model){
-		return $script(this).run(model);
+if (!String.prototype.render) {
+	String.prototype.render = function(model){
+		return $script(this).render(model);
 	}
 }
 
-if (!String.prototype.render) String.prototype.render = String.prototype.run;
+//if (!String.prototype.render) String.prototype.render = String.prototype.run;
 
 // function String.replaceKeys(item)
 // return: replaced '{key1} some text {key2.level2}' with item: { key1: 'value1', key2: { level2: 'value2' } }
@@ -614,6 +597,17 @@ if (!String.prototype.replaceKeys) {
 	});
  };
 }
+
+if (!String.prototype.replaceColon) {
+ String.prototype.replaceColon = function(keys) {
+    if( ! keys instanceof Object ) return this;
+    
+    return this.replace(/\:([\w\-\_\.]+)/g, function(match, key) {
+        return _.key(keys,key) || match;
+	});
+ };
+}
+
 
 if (!String.prototype.clearKeys) {
  String.prototype.clearKeys = function() {
@@ -1644,6 +1638,8 @@ if( !Element.prototype.find )
         jModal.reload = function(){
             if( args.body ) {
                 jModalBody.render(args.body);
+                if( isFunction(args.ready) ) args.ready.apply(jModal.get(0),[jModal,args.model]);
+                
             } else if( args.url ) {
 
             	jModalBody.renderHref(args.url,function(){
@@ -2329,7 +2325,7 @@ $(function(){
 	            	
                 	var keys = {};
                     keys[item_name] = $model(model.name).get(item.id);
-                    jItem = $(template.replaceKeys(keys,{ clean: true }).i18n()).attr('model-item',model.name+'/'+item.id);
+                    jItem = $(template.render(keys).i18n()).attr('model-item',model.name+'/'+item.id);
                     if( item.status != undefined ) jItem.attr('model-status',item.status);
                     if( isObject(item.$is) ) {
                         _.keys(item.$is).forEach(function(prop){
@@ -2412,9 +2408,10 @@ $(function(){
 	var gears_list = {},
 	    gear_definitions = {};
 	
-	var gearHandler = function(name,gear){
+	var gearHandler = function(name,gear,callback){
 		this.name = name;
-		if( isFunction(gear) ) gear_definitions[this.name] = gear;
+		if( _.isFunction(gear) ) gear_definitions[this.name] = gear;
+		else if( _.isString(gear) ) this.get({ url: gear, done: callback });
 	};
 	
     gearHandler.prototype.get = function(args){
@@ -2424,13 +2421,13 @@ $(function(){
     	
     	var gear_name = this.name;
     	
-        if( !gears_list[gear_name] ) {
+        if( !gears_list[gear_name] || args.url ) {
             
             if( isFunction(gear_definitions[gear_name]) ) {
                 gears_list[gear_name] = new gear_definitions[gear_name]();
                 if( isFunction(args.done) ) args.done.apply(this,[gears_list[gear_name]]);
             } else {
-                $ajax('/gears/'+gear_name+'.gear',{
+                $ajax( args.url || ('/gears/'+gear_name+'.gear') ,{
                     async: ( ( args.async === undefined ) ? ( isFunction(args.done) ? true : false ) : args.async ),
                 }).get().done(function(data){
                 	var gear;
