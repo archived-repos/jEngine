@@ -1717,6 +1717,7 @@ $(document).on('engine.ready',function(){
 (function( ){
     
     var user = new (function(){
+        var _this = this; 
         this._data = false;
         this.url = '/-/model/user.json';
         this.on = {};
@@ -1728,14 +1729,16 @@ $(document).on('engine.ready',function(){
         this.status = function(callback){
             if(typeof callback == 'boolean') { async = !callback; callback = function(){} } else async = true;
             
-            $ajax(user.url,{
+            var xhr = $ajax(user.url,{
               method: 'GET', async: async,
               mode : 'json',
               done: function(response){
                 user._data = response;
-                if(isFunction(callback)) callback.apply(user);
+                if(isFunction(callback)) callback.call(xhr,user._data);
               }
             });
+            
+            return xhr;
         }
         
         this.data = function(){
@@ -1744,9 +1747,25 @@ $(document).on('engine.ready',function(){
             return user._data;
         }
         
-        this.isLogged = function(){ return user.data().logged; }
+        this.isLogged = function(args){
+            if( (args || {}).async ) {
+                var promise = jQuery.Deferred();
+                
+                _this.status(function(user){
+                    if( user.id || user.logged ) {
+                        promise.resolve(user);
+                    } else {
+                        promise.reject();
+                    }
+                });
+                
+                return promise;
+            } else {
+                return user.data().id || user.data().logged;
+            }
+        };
         
-        this.logIn = function() {
+        this.login = function() {
             var args;
             if( arguments.length == 1 ) {
                 form = false;
@@ -1790,7 +1809,7 @@ $(document).on('engine.ready',function(){
             });
         }
         
-        this.logOut = function(args) {
+        this.logout = function(args) {
         	if( isFunction(args) ) {
         		user.on.logOut = args; return true;
         	} else if( !args ) args = {};
@@ -1812,7 +1831,7 @@ $(document).on('engine.ready',function(){
         
     })();
     
-    $(document).on('user.logged-required',user.logOut);
+    $(document).on('user.logged-required',user.logout);
     
     window.$user = user;
 
