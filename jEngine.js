@@ -202,6 +202,20 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
 			
 		}
 	}
+
+	if( !window._.groupBy ) {
+		window._.groupBy = function (list, key) {
+			var index = {}, aux_key;
+
+			for( var i = 0, len = list.length; i < len; i++ ) {
+				aux_key = _.key(list[i],key);
+				if( !index[aux_key] ) index[aux_key] = [];
+				index[aux_key].push(list[i]);
+			}
+
+			return index;
+		};
+	}
 	
 	
     function ajax(url,args){
@@ -1717,16 +1731,22 @@ $(document).on('engine.ready',function(){
 (function( ){
     
     var user = new (function(){
-        var _this = this; 
+        var _this = this,
+        	isLoading = false,
+        	isReady = false,
+        	onReady = [];
+
         this._data = false;
         this.url = '/-/model/user.json';
         this.on = {};
+
         
         this.question = function(){
             return $cookies.get('question') || '';
         }
         
         this.status = function(callback){
+        	isLoading = true;
             if(typeof callback == 'boolean') { async = !callback; callback = function(){} } else async = true;
             
             var xhr = $ajax(user.url,{
@@ -1734,12 +1754,29 @@ $(document).on('engine.ready',function(){
               mode : 'json',
               done: function(response){
                 user._data = response;
+                isLoading = false;
+                isReady = true;
+                onReady.forEach(function (_callback) {
+                	_callback(_this);
+                });
                 if(isFunction(callback)) callback.call(xhr,user._data);
               }
             });
             
             return xhr;
         }
+
+        this.ready = function (callback) {
+        	if( isFunction(callback) ) {
+	        	if( isLoading ) {
+	        		onReady.push(callback);
+	        	} else if(isReady) {
+	        		callback(_this);
+	        	} else {
+	        		_this.status(callback);
+	        	}
+        	}
+        };
         
         this.data = function(){
             if(user._data) return user._data;
@@ -2470,12 +2507,20 @@ $(function(){
     }
     
     gearHandler.prototype.run = function(){
-        var args = arguments;
-        this.get(function(gear){
-        	if(gear) {
-		        if( isFunction(gear.run) ) gear.run.apply(gear,args);
-		    } else console.log('[warning] gear not foud: '+name);
-        });
+    	var g = this;
+    	return new Promise(function (resolve, reject) {
+	        var args = arguments;
+
+	        g.get(function(gear){
+	        	if(gear) {
+			        if( isFunction(gear.run) ) gear.run.apply(gear,args);
+			        resolve();
+			    } else {
+			    	reject();
+			    	log('[warning] gear not foud: ' + name);
+			    }
+	        });
+    	});
     }
     
     var gearsHandler = function(name,gear){ return new gearHandler(name,gear); };
