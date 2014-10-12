@@ -253,10 +253,10 @@ function FastClick(e,t){"use strict";function r(e,t){return function(){return e.
         xhr.onreadystatechange=function(){
             if( xhr.readyState == 'complete' || xhr.readyState == 4 ) {
                 if( xhr.status >= 200 && xhr.status <300 ) {
-                	var data = /^json$/i.test(args.mode) ? JSON.parse(xhr.responseText) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
+                	var data = /^json$/i.test(args.mode) ? ( xhr.responseText ? JSON.parse(xhr.responseText) : false ) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
                     on.done.forEach(function(action){ action.apply(xhr,[data]) });
                 } else {
-                    var data = /^json$/i.test(args.mode) ? JSON.parse(xhr.responseText) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
+                    var data = /^json$/i.test(args.mode) ? ( xhr.responseText ? JSON.parse(xhr.responseText) : false ) : ( /^xml$/i.test(args.mode) ? xhr.responseXML : xhr.responseText );
                     on.fail.forEach(function(action){ action.apply(xhr,[data]) });
                 }
                 on.always.forEach(function(action){ action.apply(xhr,[xhr]) });
