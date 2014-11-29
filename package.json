@@ -1,6 +1,6 @@
 {
   "name": "jengine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Powerful javascript framework to build your website/application",
   "main": "jEngine.js",
   "scripts": {
@@ -20,5 +20,9 @@
   "bugs": {
     "url": "https://github.com/jstools/jEngine/issues"
   },
-  "homepage": "https://github.com/jstools/jEngine"
+  "homepage": "https://github.com/jstools/jEngine",
+  "devDependencies": {
+    "jqlite": "latest",
+    "jstool-core": "latest"
+  }
 }
