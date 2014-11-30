@@ -3,15 +3,15 @@
 var grunt = require('grunt'),
     path = require('path');
 
-function jstool2Tmp (filepath) {
+function jstool2Tmp (dependenceName, filepath) {
   if( filepath instanceof Array ) {
-    for( var i = 0, len = filepath.length; i++ ) {
-      jstool2Tmp(filepath[i]);
+    for( var i = 0, len = filepath.length; i < len; i++ ) {
+      jstool2Tmp(dependenceName, filepath[i]);
     }
   } else if( typeof filepath === 'string' ) {
     grunt.file.copy(
-      path.join( process.cwd, 'node_modules', filepath ),
-      path.join( process.cwd, '.tmp', filepath )
+      path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
+      path.join( process.cwd(), '.tmp', dependenceName, filepath )
       ,{
         encoding: 'utf8'
       });
@@ -33,23 +33,54 @@ module.exports = function(grunt) {
   // Project configuration.
   grunt.initConfig({
 
-    pkg: pkg
+    pkg: pkg,
+
+    concat: {
+      options: {
+        separator: ';',
+      },
+      main: {
+        cwd: '.tmp',
+        src: [
+          'jstool-core/**/fix-ie.js',
+          'jstool-core/**/log.js',
+          'jstool-core/**/fn.js',
+          'jstool-core/**/*.js',
+          '**/*.js'
+        ],
+        dest: '<%= pkg.main %>',
+      },
+    },
+
+    uglify: {
+      options: {
+        banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n'
+      },
+      min: {
+        src: [
+          '<%= pkg.main %>'
+        ],
+        dest: '<%= pkg.main.replace(/\.js$/, \'.min.js\') %>'
+      }
+    }
 
   });
 
-  grunt.registerTask('default', function () {
+  grunt.registerTask('copy-tmp', function () {
     console.log('dependencies', pkg.devDependencies);
 
     var dependencePkg;
 
-    for( var dependence in pkg.devDependencies ) {
-      dependencePkg = grunt.file.readJSON('node_modules/' + dependence + '/package.json');
+    for( var dependenceName in pkg.devDependencies ) {
+      dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');
 
       if( dependencePkg.jstool ) {
-        console.log(dependence, dependencePkg.jstool );
-        jstool2Tmp(dependencePkg.jstool);
+        console.log(dependenceName, dependencePkg.jstool );
+        jstool2Tmp(dependenceName, dependencePkg.jstool);
       }
     }
   });
+
+  grunt.registerTask('build', [ 'copy-tmp', 'concat:main', 'uglify:min' ]);
 
 };
