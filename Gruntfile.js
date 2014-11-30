@@ -47,6 +47,7 @@ module.exports = function(grunt) {
       },
       main: {
         src: [
+          '.tmp/license.js',
           '.tmp/jstool-core/**/fix-ie.js',
           '.tmp/jstool-core/**/log.js',
           '.tmp/jstool-core/**/fn.js',
@@ -99,7 +100,9 @@ module.exports = function(grunt) {
   });
 
   grunt.registerTask('copy-tmp', function () {
-    var dependencePkg;
+    var dependencePkg, license = grunt.file.read('LICENSE');
+
+    grunt.file.write('.tmp/license.js', grunt.template.process('/*\n * <%= pkg.name %> - <%= pkg.description %>\n\n') + license.replace(/(.*)\n?/g, ' * $1\n') + ' */\n\n' );
 
     for( var dependenceName in pkg.devDependencies ) {
       dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');

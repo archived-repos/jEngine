@@ -1,6 +1,6 @@
 {
     "name": "jengine",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "description": "A Powerful javascript framework to build your website/application",
     "main": "jEngine.js",
     "scripts": {
@@ -16,7 +16,7 @@
         "framework"
     ],
     "author": "Jesús Manuel Germade Castiñeiras <jesus@germade.es>",
-    "license": "GNU v3",
+    "license": "ISC",
     "bugs": {
         "url": "https://github.com/jstools/jEngine/issues"
     },
