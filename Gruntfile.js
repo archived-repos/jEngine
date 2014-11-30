@@ -104,13 +104,17 @@ module.exports = function(grunt) {
 
     grunt.file.write('.tmp/license.js', grunt.template.process('/*\n * <%= pkg.name %> - <%= pkg.description %>\n\n') + license.replace(/(.*)\n?/g, ' * $1\n') + ' */\n\n' );
 
-    for( var dependenceName in pkg.devDependencies ) {
-      dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');
+    pkg.jstools.forEach(function (dependenceName) {
+      jstool2Tmp(dependenceName, grunt.file.readJSON('node_modules/' + dependenceName + '/package.json').main);
+    });
 
-      if( dependencePkg.jstool ) {
-        jstool2Tmp(dependenceName, dependencePkg.jstool);
-      }
-    }
+    // for( var dependenceName in pkg.devDependencies ) {
+    //   dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');
+
+    //   if( dependencePkg.jstool ) {
+    //     jstool2Tmp(dependenceName, dependencePkg.jstool);
+    //   }
+    // }
   });
 
   grunt.registerTask('build', [ 'clean:tmp', 'process-jstools', 'concat:main', 'uglify:min' ]);
