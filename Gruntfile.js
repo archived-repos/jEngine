@@ -35,18 +35,23 @@ module.exports = function(grunt) {
 
     pkg: pkg,
 
+    clean: {
+      tmp: {
+        src: [".tmp"]
+      }
+    },
+
     concat: {
       options: {
-        separator: ';',
+        separator: '\n\n/*  ----------------------------------------------------------------------------------------- */\n\n'
       },
       main: {
-        cwd: '.tmp',
         src: [
-          'jstool-core/**/fix-ie.js',
-          'jstool-core/**/log.js',
-          'jstool-core/**/fn.js',
-          'jstool-core/**/*.js',
-          '**/*.js'
+          '.tmp/jstool-core/**/fix-ie.js',
+          '.tmp/jstool-core/**/log.js',
+          '.tmp/jstool-core/**/fn.js',
+          '.tmp/jstool-core/**/*.js',
+          '.tmp/**/*.js'
         ],
         dest: '<%= pkg.main %>',
       },
@@ -61,6 +66,33 @@ module.exports = function(grunt) {
           '<%= pkg.main %>'
         ],
         dest: '<%= pkg.main.replace(/\.js$/, \'.min.js\') %>'
+      }
+    },
+
+    shell: {
+      options: {
+        stderr: false
+      },
+      'git-add': {
+        command: 'git add --all'
+      },
+      'git-commit-version': {
+        command: 'git commit -m "increasing version"'
+      },
+      'git-push': {
+        command: 'git push origin master'
+      },
+      'npm-publish': {
+        command: 'npm publish'
+      }
+    },
+    'increase-version': {
+      bower: {
+        options: {
+        },
+        files: {
+          src: [ 'bower.json' ]
+        }
       }
     }
 
@@ -81,6 +113,10 @@ module.exports = function(grunt) {
     }
   });
 
-  grunt.registerTask('build', [ 'copy-tmp', 'concat:main', 'uglify:min' ]);
+  grunt.registerTask('build', [ 'clean:tmp', 'copy-tmp', 'concat:main', 'uglify:min' ]);
+
+  grunt.registerTask('git:push-version', [ 'shell:git-add', 'shell:git-commit-version', 'shell:git-push' ]);
+
+  grunt.registerTask('publish', [ 'build', 'increase-version', 'git:push-version', 'shell:npm-publish' ]);
 
 };

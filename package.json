@@ -23,6 +23,7 @@
   "homepage": "https://github.com/jstools/jEngine",
   "devDependencies": {
     "grunt": "*",
+    "grunt-contrib-clean": "*",
     "grunt-contrib-concat": "*",
     "grunt-contrib-uglify": "*",
     "grunt-increase-version": "*",
