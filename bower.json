@@ -1,23 +1,23 @@
 {
-  "name": "jEngine",
-  "version": "0.1.2",
-  "homepage": "https://github.com/jstools/jEngine",
-  "authors": [
-    "Jesús Germade <jesus@germade.es>"
-  ],
-  "description": "A Powerful javascript framework to build your website/application",
-  "main": "jEngine.js",
-  "keywords": [
-    "javascript",
-    "jstools",
-    "framework"
-  ],
-  "license": "GNU v3",
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ]
+    "name": "jEngine",
+    "version": "0.1.3",
+    "homepage": "https://github.com/jstools/jEngine",
+    "authors": [
+        "Jesús Germade <jesus@germade.es>"
+    ],
+    "description": "A Powerful javascript framework to build your website/application",
+    "main": "jEngine.js",
+    "keywords": [
+        "javascript",
+        "jstools",
+        "framework"
+    ],
+    "license": "GNU v3",
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "test",
+        "tests"
+    ]
 }
