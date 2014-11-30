@@ -970,7 +970,22 @@
 
 /*  ----------------------------------------------------------------------------------------- */
 
-fn.define('Events', function () {
+
+(function (Events) {
+
+  if ( typeof window === 'undefined' ) {
+    if ( typeof module !== 'undefined' ) {
+      module.exports = Events;
+    }
+  } else {
+    if ( window.fn ) {
+      fn.define('Events', Events);
+    } else if( !window.Events ) {
+      window.Events = Events;
+    }
+  }
+
+})(function () {
 	'use strict';
 
 	function _addListener (handlers, handler, context) {
