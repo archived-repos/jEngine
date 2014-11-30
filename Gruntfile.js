@@ -99,15 +99,12 @@ module.exports = function(grunt) {
   });
 
   grunt.registerTask('copy-tmp', function () {
-    console.log('dependencies', pkg.devDependencies);
-
     var dependencePkg;
 
     for( var dependenceName in pkg.devDependencies ) {
       dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');
 
       if( dependencePkg.jstool ) {
-        console.log(dependenceName, dependencePkg.jstool );
         jstool2Tmp(dependenceName, dependencePkg.jstool);
       }
     }
