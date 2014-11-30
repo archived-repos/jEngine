@@ -9,14 +9,11 @@ function jstool2Tmp (dependenceName, filepath) {
       jstool2Tmp(dependenceName, filepath[i]);
     }
   } else if( typeof filepath === 'string' ) {
-    grunt.file.copy(
-      path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
-      path.join( process.cwd(), '.tmp', dependenceName, filepath )
-      ,{
-        encoding: 'utf8'
-      });
-
-    console.log('file2Tmp', process.cwd() );
+    grunt.file.copy( path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
+        path.join( process.cwd(), '.tmp', dependenceName, filepath )
+    ,{
+      encoding: 'utf8'
+    });
   }
 }
 
