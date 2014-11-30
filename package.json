@@ -1,37 +1,38 @@
 {
-    "name": "jengine",
-    "version": "0.1.6",
-    "description": "A Powerful javascript framework to build your website/application",
-    "main": "jEngine.js",
-    "scripts": {
-        "test": "grunt test"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/jstools/jEngine.git"
-    },
-    "keywords": [
-        "javascript",
-        "jstools",
-        "framework"
-    ],
-    "author": "Jesús Manuel Germade Castiñeiras <jesus@germade.es>",
-    "license": "ISC",
-    "bugs": {
-        "url": "https://github.com/jstools/jEngine/issues"
-    },
-    "homepage": "https://github.com/jstools/jEngine",
-    "devDependencies": {
-        "grunt": "*",
-        "grunt-contrib-clean": "*",
-        "grunt-contrib-concat": "*",
-        "grunt-contrib-uglify": "*",
-        "grunt-increase-version": "*",
-        "grunt-shell": "*",
-        "jqlite": "*",
-        "jstool-core": "*",
-        "jstool-events": "*",
-        "load-grunt-tasks": "*",
-        "time-grunt": "*"
-    }
+  "name": "jengine",
+  "version": "0.1.6",
+  "description": "A Powerful javascript framework to build your website/application",
+  "main": "jEngine.js",
+  "scripts": {
+    "test": "grunt test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jstools/jEngine.git"
+  },
+  "keywords": [
+    "javascript",
+    "jstools",
+    "framework"
+  ],
+  "author": "Jesús Manuel Germade Castiñeiras <jesus@germade.es>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jstools/jEngine/issues"
+  },
+  "homepage": "https://github.com/jstools/jEngine",
+  "devDependencies": {
+    "grunt": "*",
+    "grunt-contrib-clean": "*",
+    "grunt-contrib-concat": "*",
+    "grunt-contrib-uglify": "*",
+    "grunt-increase-version": "*",
+    "grunt-shell": "*",
+    "jqlite": "*",
+    "jstool-cookie": "*",
+    "jstool-core": "*",
+    "jstool-events": "*",
+    "load-grunt-tasks": "*",
+    "time-grunt": "*"
+  }
 }

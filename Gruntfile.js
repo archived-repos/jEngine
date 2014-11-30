@@ -99,7 +99,7 @@ module.exports = function(grunt) {
 
   });
 
-  grunt.registerTask('copy-tmp', function () {
+  grunt.registerTask('process-jstools', function () {
     var dependencePkg, license = grunt.file.read('LICENSE');
 
     grunt.file.write('.tmp/license.js', grunt.template.process('/*\n * <%= pkg.name %> - <%= pkg.description %>\n\n') + license.replace(/(.*)\n?/g, ' * $1\n') + ' */\n\n' );
@@ -113,7 +113,7 @@ module.exports = function(grunt) {
     }
   });
 
-  grunt.registerTask('build', [ 'clean:tmp', 'copy-tmp', 'concat:main', 'uglify:min' ]);
+  grunt.registerTask('build', [ 'clean:tmp', 'process-jstools', 'concat:main', 'uglify:min' ]);
 
   grunt.registerTask('git:push-version', [ 'shell:git-add', 'shell:git-commit-version', 'shell:git-push' ]);
 
