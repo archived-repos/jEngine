@@ -22,7 +22,11 @@
   },
   "homepage": "https://github.com/jstools/jEngine",
   "devDependencies": {
+    "grunt": "^0.4.5",
     "jqlite": "latest",
-    "jstool-core": "latest"
+    "jstool-core": "latest",
+    "jstool-events": "latest",
+    "load-grunt-tasks": "^1.0.0",
+    "time-grunt": "^1.0.0"
   }
 }
