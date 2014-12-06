@@ -32,6 +32,8 @@
         "jstool-cookie": "*",
         "jstool-core": "*",
         "jstool-events": "*",
+        "jstool-http": "*",
+        "jstool-promise": "*",
         "load-grunt-tasks": "*",
         "time-grunt": "*"
     },
@@ -39,6 +41,8 @@
         "jqlite",
         "jstool-cookie",
         "jstool-core",
-        "jstool-events"
+        "jstool-events",
+        "jstool-http",
+        "jstool-promise"
     ]
 }

@@ -694,3 +694,152 @@
 
     return Events;
 });
+
+/*  ----------------------------------------------------------------------------------------- */
+
+
+(function (definition) {
+	'use strict';
+	
+	if ( typeof window !== 'undefined' ) {
+		if ( window.fn ) {
+			fn.define('http', [ 'Promise', definition ]);
+		} else if( typeof Promise !== 'undefined' ) {
+			window.http = definition(Promise);
+		} else {
+			throw 'Promise is required for http to be defined';
+		}
+	}
+
+})(function (Promise) {
+	'use strict';
+
+	function ajax(url, args){
+
+        if( !args ) args = ( url instanceof Object ) ? url : {};
+        if( args.url ) url = args.url;
+        if( !url ) return false;
+        
+        if( !args.method ) args.method = 'GET';
+        
+        if( !args.contentType ) {
+            if( /^json$/i.test(args.mode) ) args.contentType = 'application/json';
+            else args.contentType = 'application/x-www-form-urlencoded';
+        }
+        
+        if( /^json$/i.test(args.mode) && isObject(args.data) ) args.data = JSON.stringify(args.data);
+        
+        var request = null;
+        try	{ // Firefox, Opera 8.0+, Safari
+            request = new XMLHttpRequest();
+        } catch (e) { // Internet Explorer
+            try { request = new ActiveXObject("Msxml2.XMLHTTP"); }
+            catch (e) { request = new ActiveXObject("Microsoft.XMLHTTP"); }
+        }
+        if (request===null) { throw "Browser does not support HTTP Request"; }
+	        
+		var p = new Promise(function (resolve, reject) {
+
+	        request.open(args.method,url,(args.async === undefined) ? true : args.async);
+	        request.onreadystatechange=function(){
+	            if( request.readyState == 'complete' || request.readyState == 4 ) {
+	                if( request.status >= 200 && request.status <300 ) {
+	                	var data = /^json$/i.test(args.mode) ? JSON.parse(request.responseText) : ( /^xml$/i.test(args.mode) ? request.responseXML : request.responseText );
+	                	resolve(data, request.status, request);
+	                } else {
+	                    var data = /^json$/i.test(args.mode) ? JSON.parse(request.responseText) : ( /^xml$/i.test(args.mode) ? request.responseXML : request.responseText );
+	                    reject(data, request.status, request);
+	                }
+	            }
+	        }
+	        
+	        request.setRequestHeader('Content-Type',args.contentType);
+	        request.setRequestHeader('X-Requested-With','XMLHttpRequest');
+	        
+	        if( args.headers ) {
+	        	for( var header in args.headers ) {
+	                request.setRequestHeader(header,args.headers[header]);
+	        	}
+	        }
+	        
+	        request.send(args.data);
+		});
+
+		p.request = request;
+
+		return p;
+    }
+
+    return ajax;
+});
+
+/*  ----------------------------------------------------------------------------------------- */
+
+/*
+ * css.js
+ *
+ * The MIT License (MIT)
+ * 
+ * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ */
+
+(function () {
+
+	function addWhen (Promise) {
+		if( !Promise.when ) {
+			Promise.when = function (p) {
+				p = p || {};
+	            return new Promise(function (resolve, reject) {
+	                if( p ) {
+	                    if( typeof p.then === 'function' ) {
+	                        p.then(resolve, reject);
+	                    } else {
+	                        setTimeout(function () {
+	                            resolve();
+	                        }, 0);
+	                    }
+	                } else {
+	                    setTimeout(function () {
+	                        reject();
+	                    }, 0);
+	                }
+	            });
+	        };
+		}
+	}
+
+	if( typeof window === 'undefined' ) {
+		var Promise = require('promise-es6').Promise;
+		addWhen(Promise);
+		if ( typeof module !== 'undefined' ) {
+			module.exports = Promise;
+		}
+	} else {
+		if( typeof Promise === 'undefined' ) {
+			throw 'Promise not found';
+		} else {
+			addWhen(Promise);
+			fn.define('Promise', function () { return Promise; });
+		}
+	}
+
+})();
