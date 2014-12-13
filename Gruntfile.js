@@ -92,6 +92,11 @@ module.exports = function(grunt) {
           src: [ 'bower.json' ]
         }
       }
+    },
+    karma: {
+      files: [
+        'test/*.js'
+      ]
     }
 
   });

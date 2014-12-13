@@ -1042,17 +1042,17 @@
  * 
  */
 
-(function (Events) {
+(function (definition) {
 
   if ( typeof window === 'undefined' ) {
     if ( typeof module !== 'undefined' ) {
-      module.exports = Events;
+      module.exports = definition();
     }
   } else {
     if ( window.fn ) {
-      fn.define('Events', Events);
+      fn.define('Events', definition );
     } else if( !window.Events ) {
-      window.Events = Events;
+      window.Events = definition();
     }
   }
 
@@ -1271,11 +1271,14 @@
 			module.exports = Promise;
 		}
 	} else {
-		if( typeof Promise === 'undefined' ) {
+		if( typeof window.Promise === 'undefined' ) {
 			throw 'Promise not found';
 		} else {
-			addWhen(Promise);
-			fn.define('Promise', function () { return Promise; });
+			addWhen(window.Promise);
+
+			if( typeof fn !== 'undefined' ) {
+				fn.define('Promise', function () { return Promise; });
+			}
 		}
 	}
 
