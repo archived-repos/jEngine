@@ -446,21 +446,28 @@
  * 
  */
 
-(function ($) {
+(function (root, factory) {
 
   if ( typeof window === 'undefined' ) {
     if ( typeof module !== 'undefined' ) {
-      module.exports = $;
+      module.exports = factory();
     }
   } else {
-    if ( window.fn ) {
-      fn.define('$', $)
-    } else if( !window.$ ) {
-      window.$ = $;
+    if ( typeof fn === 'function' ) {
+      fn.define('$', factory );
+    } else if( typeof angular === 'function' ) {
+      angular.module('jqlite', []).constant('jqlite', factory());
+    } else if ( typeof define === 'function' && define.amd ) {
+      define(['$'], factory);
+    } else {
+      root.jqlite = factory();
+      if( !root.$ ) {
+        root.$ = root.jqlite;
+      }
     }
   }
 
-})(function () {
+})(this, function () {
   'use strict';
 
   if( !Element.prototype.matchesSelector ) {
@@ -477,40 +484,141 @@
     if (e &&e.preventDefault) e.preventDefault();
     else if (window.event && window.event.returnValue) window.eventReturnValue = false;
   }
-  
-  function triggerEvent (element,name,data){
-    var event; // The custom event that will be created
-    
-    if (document.createEvent) {
-      event = document.createEvent("HTMLEvents");
+
+  var triggerEvent = document.createEvent ? function (element, eventName, args, data) {
+      var event = document.createEvent("HTMLEvents");
       event.data = data;
-      event.initEvent(name, true, true);
-    } else {
-      event = document.createEventObject();
+      event.args = args;
+      event.initEvent(eventName, true, true);
+      element.dispatchEvent(event);
+      return event;
+    } : function (element, eventName, args, data) {
+      var event = document.createEventObject();
       event.data = data;
-    }
-    
-    if(document.createEvent) element.dispatchEvent(event);
-    else element.fireEvent("on" + event.eventType, event);
-    
-    return event;
-  }
+      event.args = args;
+      element.fireEvent("on" + eventName, event);
+      return event;
+    };
 
   var RE_HAS_SPACES = /\s/,
       RE_ONLY_LETTERS = /^[a-zA-Z]+$/,
-      RE_IS_ID = /^\#.+/,
-      RE_IS_CLASS = /^\..+/
-      ready = function (arg) {
-        if( callback instanceof Function ) {
-          if( ready.ready ) {
-            callback.call(document);
-          } else {
-            ready.onceListeners.push(callback);
-          }
-        } else if ( callback === undefined ) {
-          return ready.isReady;
-        }
+      RE_IS_ID = /^\#[^\.\[]/,
+      RE_IS_CLASS = /^\.[^#\[]/,
+      runScripts = eval,
+      noop = function () {},
+      auxArray = [],
+      auxDiv = document.createElement('div'),
+      detached = document.createElement('div'),
+      classListEnabled = !!auxDiv.classList;
+
+  // Events support
+
+  var attachElementListener = noop, detachElementListener = noop;
+
+  if( auxDiv.addEventListener )  { // W3C DOM
+
+    attachElementListener = function (element, eventName, listener) {
+      listener.$listener = function(e){
+          listener.apply(e.target,[e].concat(e.args));
       };
+
+      element.addEventListener(eventName, listener.$listener,false);
+    };
+
+    detachElementListener = function (element, eventName, listener) {
+      element.removeEventListener(eventName, listener.$listener || listener, false);
+    };
+
+
+  } else if(document.body.attachEvent) { // IE DOM
+
+    attachElementListener = function (element, eventName, listener) {
+      listener.$listener = function(e){
+          listener.apply(e.target,[e].concat(e.args));
+      };
+
+      element.attachEvent("on" + eventName, listener.$listener, false);
+    };
+
+    detachElementListener = function (element, eventName, listener) {
+      element.detachEvent('on' + eventName, listener.$listener || listener );
+    };
+
+  } else {
+    throw 'Browser not compatible with element events';
+  }
+
+  // jqlite function
+
+  function pushMatches( list, matches ) {
+    for( var i = 0, len = matches.length; i < len; i++ ) {
+        list[i] = matches[i];
+    }
+    list.length += len;
+    return list;
+  }
+
+  function stringMatches (selector) {
+    switch ( selector[0] ) {
+      case '#':
+        var found = document.querySelector(selector);
+        if( found ) {
+          var listdom = new ListDOM();
+          listdom[0] = found;
+          listdom.length = 1;
+          return listdom;
+        } else return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+        break;
+      case '<':
+        auxDiv.innerHTML = selector;
+        var jChildren = pushMatches( new ListDOM(), auxDiv.children );
+        jqlite.plugin.init(jChildren);
+        return jChildren;
+      default:
+        return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+    }
+  }
+
+  function initList(selector) {
+
+    if( selector instanceof Array || selector instanceof NodeList || selector instanceof HTMLCollection ) {
+      return pushMatches( new ListDOM(), selector );
+    }
+
+    if( selector === document || selector instanceof HTMLElement || selector instanceof Element ) {
+      var list2 = new ListDOM();
+      list2[0] = selector;
+      list2.length = 1;
+      return list2;
+    }
+
+    if( selector instanceof Function ) ready(selector);
+  }
+  
+  function jqlite (selector){
+    if( typeof selector === 'string' ) {
+      return stringMatches(selector);
+    }
+    return initList(selector);
+  }
+
+  jqlite.fn = ListDOM.prototype;
+
+  jqlite.noop = noop;
+
+  // document ready
+
+  function ready (callback) {
+    if( callback instanceof Function ) {
+      if( ready.ready ) {
+        callback.call(document);
+      } else {
+        ready.onceListeners.push(callback);
+      }
+    } else if ( callback === undefined ) {
+      return ready.isReady;
+    }
+  }
 
   ready.isReady = false;
   ready.ready = function () {
@@ -523,417 +631,825 @@
   ready.onceListeners = [];
 
   if ( document.addEventListener ) {
-      document.addEventListener( "DOMContentLoaded", function(){
-        document.removeEventListener( "DOMContentLoaded", arguments.callee, false );
-        ready.ready();
-      }, false );
+    ready._listener = function () {
+      document.removeEventListener( "DOMContentLoaded", ready._listener, false );
+      ready.ready();
+    };
+    document.addEventListener( "DOMContentLoaded", ready._listener, false );
   } else if ( document.attachEvent ) {
-    document.attachEvent("onreadystatechange", function(){
+    ready._listener = function () {
       if ( document.readyState === "complete" ) {
-        document.detachEvent( "onreadystatechange", arguments.callee );
+        var args = arguments;
+        document.detachEvent( "onreadystatechange", ready._listener );
         ready.ready();
       }
-    });
+    };
+    document.attachEvent("onreadystatechange", ready._listener);
   }
 
-  // List of elements
+  // ListDOM
     
-  function listDOM(elems){
-      if( typeof elems === 'string' ) {
-        if( RE_HAS_SPACES.test(elems) ) [].push.apply(this,document.querySelectorAll(elems));
-        else {
-          if( RE_ONLY_LETTERS.test(elems) ) [].push.apply(this,document.getElementsByTagName(elems));
-          else if( RE_IS_ID.test(elems) ) [].push.call(this,document.getElementById(elems.substr(1)));
-          else if( RE_IS_CLASS.test(elems) ) [].push.apply(this,document.getElementsByClassName(elems.substr(1)));
-          else [].push.apply(this,document.querySelectorAll(elems));
+  function ListDOM(){}
+  
+  ListDOM.prototype = [];
+  ListDOM.prototype.ready = ready;
+
+  ListDOM.prototype.get = function(pos) {
+      return pos ? this[pos] : this;
+    };
+
+  ListDOM.prototype.eq = function(pos) {
+      var item = ( pos < 0 ) ? this[this.length - pos] : this[pos], list = new ListDOM();
+
+      if(item) {
+        list[0] = item;
+      }
+      return list; 
+    };
+
+  ListDOM.prototype.find = function(selector) {
+      var elems = new ListDOM(), found, i, len;
+
+      if( this.length === 1 ) {
+        found = this[0].querySelectorAll(selector);
+        for( i = 0, len = found.length; i < len; i++ ) {
+          elems[i] = found[i];
+        }
+        elems.length = len;
+      } else if( this.length > 1 ) {
+        var j, len2;
+        for( i = 0, len = this.length; i < len; i++ ) {
+            found = this[i].querySelectorAll(selector);
+            for( j = 0, len2 = found.length; j < len2 ; j++ ) {
+                if( !found.item(j).___found___ ) {
+                    elems[elems.length] = found.item(j);
+                    elems.length++;
+                    found.item(j).___found___ = true;
+                }
+            }
+        }
+        for( i = 0, len = elems.length; i < len ; i++ ) {
+          delete elems[i].___found___;
         }
       }
-      else if( elems instanceof Array ) [].push.apply(this,elems);
-      else if( elems instanceof NodeList ) [].push.apply(this,elems);
-      else if( elems instanceof HTMLCollection ) [].push.apply(this,elems);
-      else if( elems instanceof Element ) [].push.call(this,elems);
-      else if( elems instanceof Function ) ready(elems);
-      else if( elems === document ) [].push.call(this,elems);
-  }
-  
-  listDOM.prototype = new Array();
-  
-  listDOM.fn = function(name,elementDo,collectionDo) {
-      if( typeof name === 'string' ) {
-          if( elementDo instanceof Function ) {
-              if( !Element.prototype[name] ) Element.prototype[name] = elementDo;
+
+      return elems;
+    };
+  ListDOM.prototype.$ = ListDOM.prototype.find;
+
+  ListDOM.prototype.each = function(each) {
+      if( each instanceof Function ) {
+        for( var i = 0, len = this.length, elem; i < len ; i++ ) {
+            each.call(this[i], i, this[i]);
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.empty = function(each) {
+      if( each instanceof Function ) {
+        for( var i = 0, len = this.length, elem, child; i < len ; i++ ) {
+            elem = this[i];
+            child = elem.firstChild;
+            while( child ) {
+              elem.removeChild(child);
+              child = elem.firstChild;
+            }
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.filter = function(selector) {
+      var elems = new ListDOM(), elem, i, len;
+      
+      if( selector instanceof Function ) {
+        for( i = 0, len = this.length, elem; i < len ; i++ ) {
+          elem = this[i];
+          if( selector.apply(elem,[elem]) ) {
+            elems.push(elem);
           }
-          if( collectionDo instanceof Function ) {
-            listDOM.prototype[name] = collectionDo;
-            NodeList.prototype[name] = collectionDo;
-          }
-      } else if( name instanceof Object && arguments.length == 1 ) {
-          for( var key in name ) {
-            listDOM.fn(key,name[key].element,name[key].collection);
+        } 
+      } else if( typeof selector === 'string' ) {
+          for( i = 0, len = this.length, elem; i < len ; i++ ) {
+            elem = this[i];
+            if( Element.prototype.matchesSelector.call(elem,selector) ) {
+              elems.push(elem);
+            }
           }
       }
-  };
-  
-  listDOM.fn({
-     'get': {
-          element: function(){ return this; },
-          collection: function(pos){ return this[pos]; }
-     },
-     'find': {
-          element: function(selector){
-              return new listDOM( Element.prototype.querySelectorAll.apply(this,arguments) );
-          },
-          collection: function(selector,test){
-              var elems = new listDOM(), found, list_found = {};
-              
-              for( var i = 0, len = this.length; i < len; i++ ) {
-                  found = this[i].querySelectorAll(selector);
-                  for( var j = 0, len2 = found.length; j < len2 ; j++ ) {
-                      if( !found.item(j).__found ) {
-                          elems.push(found.item(j));
-                          found.item(j).__found = true;
-                      }
-                  }
-              }
-              for( var i = 0, len = elems.length; i < len ; i++ ) delete elems[i].__found;
-              
-              return elems;
+      return elems;
+    };
+
+  ListDOM.prototype.closest = function(selector) {
+      var elems = new ListDOM(), i, len, elem;
+
+      if( !selector ) {
+        return this;
+      }
+
+      if( this.length === 1 ) {
+        
+        elem = this[0].parentElement;
+
+        while( elem ) {
+          if( elem.matchesSelector(selector) ) {
+            elems.push(elem);
+            break;
           }
-     },
-     'each': {
-          element: function(each){
-              if( each instanceof Function ) each.call(this,this);
-              return this;
-          },
-          collection: function(each){
-              if( each instanceof Function ) {
-                for( var i = 0, len = this.length, elem; i < len ; i++ ) {
-                    each.call(this[i], this[i]);
-                }
-              }
-              return this;
-          }
-     },
-     'filter': {
-          element: function(selector){
-              return Element.prototype.matchesSelector.call(this,selector) ? this : false;
-          },
-          collection: function(selector){
-              var elems = [];
-              
-              if( selector instanceof Function ) {
-                for( var i = 0, len = this.length, elem; i < len ; i++ ) {
-                    elem = this[i];
-                    if( selector.apply(elem,[elem]) ) elems.push(elem);
-                }
-                  
-                return new listDOM(elems);
-                  
-              } else if( typeof selector === 'string' ) {
-                  for( var i = 0, len = this.length, elem; i < len ; i++ ) {
-                    elem = this[i];
-                    if( Element.prototype.matchesSelector.call(elem,selector) ) elems.push(elem);
-                  }
-                  
-                  return new listDOM(elems);
-              }
-              return false;
-          }
-     },
-     'children': {
-        element: false,
-        collection: function(selector,args){
-          var elems = [], elem;
-          
-          if( document.body.children ) {
-            
-            elems = new listDOM();
-            
-            Array.prototype.forEach.call(this,function(elem){
-              [].push.apply(elems,elem.children);
-            });
-              
-            if( selector ) {
-              if( isString(selector) ) {
-                elems = elems.filter(selector);
-              } else if( isFunction(selector) ) elems.each(selector);
-            }
-            
-            return elems;
-            
-          } else if( isString(selector) ) {
-            Array.prototype.forEach.call(this,function(elem){
-              elem = elem.firstElementChild || elem.firstChild;
-              
-              while(elem) {
-                        if( elem && Element.prototype.matchesSelector.call(elem,selector) ) elems.push(elem);
-                        elem = elem.nextElementSibling;
-              }
-            });
-          } else if( isFunction(selector) ) {
-            Array.prototype.forEach.call(this,function(elem){
-              elem = elem.firstElementChild || elem.firstChild;
-              while(elem) {
+          elem = elem.parentElement;
+        }
+
+      } else if( this.length > 1 ) {
+
+        var j, len2;
+
+        for( i = 0, len = this.length; i < len; i++ ) {
+
+          elem = this[i].parentElement;
+          while( elem ) {
+            if( elem.matchesSelector(selector) ) {
+              if( !elem.___found___ ) {
+                elem.___found___ = true;
                 elems.push(elem);
-                selector.apply(elem,args);
-                elem = elem.nextElementSibling;
               }
-            });
-          } else {
-            Array.prototype.forEach.call(this,function(elem){
-              elem = elem.firstElementChild || elem.firstChild;
-              while(elem) {
-                elems.push(elem);
-                elem = elem.nextElementSibling;
-              }
-            });
+              break;
+            }
+            elem = elem.parentElement;
           }
-          return new listDOM(elems);
         }
-     },
-     'data': {
-          element: function (key,value) {
-              if( isString(key) ) {
-                  if( isString(value) ) {
-                      
-                      if( this.getAttribute('data-'+key) != null ) this.setAttribute('data-'+key,value);
-                      else {
-                          if( this.dataset !== undefined ) this.dataset[key] = value;
-                          else this.setAttribute('data-'+key,value);
-                      }
-                      return this;
-                      
-                  } else return this.getAttribute('data-'+key) || ( this.dataset ? this.dataset[key] : false );
-              }
-              return this;
-          },
-          collection: function (key,value) {
-              var elem;
-              
-              if( isString(key) ) {
-              
-                  if( !isString(value) ) return this[0].data(key);
-                  else {
-                    for( var i = 0, len = this.length; i < len ; i++ ) {
-                        this[i].data(key,value);
-                    }
-                    return this;
-                  }
-              }
-              return this;
-          }
-     },
-     'attr': {
-          element: function (key,value) {
-              if( isString(key) ) {
-                  if( value !== undefined ) {
-                      this.setAttribute(key,value);
-                      return this;
-                  } else return this.getAttribute(key);
-              }
-              return this;
-          },
-          collection: function (key,value) {
-              var elem;
-              
-              if( isString(key) ) {
-              
-                  if( !isString(value) ) return this[0].getAttribute(key);
-                  else {
-                    for( var i = 0, len = this.length; i < len ; i++ ) {
-                        this[i].setAttribute(key,value);
-                    }
-                    return this;
-                  }
-              }
-              return this;
-          }
-     },
-     'addClass': {
-         element: document.createElement('div').classList ? function (className) {
-            this.classList.add(className);
-            return this;
-          } : function(className){
-              if(!this.className) this.className = '';
-              var patt = new RegExp('\\b'+className+'\\b','');
-              if(!patt.test(this.className)) this.className += ' '+className;
-              return this;
-         },
-         collection: function (className) {
-            for( var i = 0, len = this.length; i < len ; i++ ) {
-                this[i].addClass(className);
-            }
-            return this;
+        for( i = 0, len = elems.length; i < len ; i++ ) {
+          delete elems[i].___found___;
         }
-     },
-     'removeClass': {
-        element: document.createElement('div').classList ? function (className) {
-            this.classList.remove(className);
-            return this;
-        } : function(className){
-            if(this.className) {
-                var patt = new RegExp('(\\b|\\s+)'+className+'\\b','g');
-                this.className = this.className.replace(patt,'');
-            }
-            return this;
-        },
-        collection: function (className) {
-            for( var i = 0, len = this.length; i < len ; i++ ) {
-                this[i].removeClass(className);
-            }
-            return this;
-        }
-     },
-     'hasClass': {
-        element: document.createElement('div').classList ? function (className) {
-            return this.classList.item(className);
-        } : function(className){
-            if(!this.className) return false;
-            patt = new RegExp('\\b'+className+'\\b','');
-            return patt.test(this.className);
-        },
-        collection: function (className) {
-            for( var i = 0, len = this.length; i < len ; i++ ) {
-                if( element.hasClass(className) ) {
-                    return true;
-                }
-            }
-            return false;
-        }
-     },
-     'parent': {
-         element: function () {
-              if( this == document.body ) return false;
-              return this.parentElement || this.parentNode;
-         },
-         collection: function () {
-            var items = new listDOM(), parent;
-            
-            for( var i = 0, len = this.length; i < len ; i++ ) {
-                parent = this[i].parent();
-                if(parent) items.push(parent);
-            }
-            
-            return items;
-         }
-     },
-     'render': {
-         element: function (html) {
-              this.innerHTML = html;
-              this.find('script').each(function(script){
-                if( script.type == 'text/javascript' ) {
-                  try{ eval('(function(){ \'use strict\';'+script.textContent+'})();'); }catch(err){ console.log(err.message); }
-                } else if( /^text\/coffee(script)/.test(script.type) && isObject(window.CoffeeScript) ) {
-                  if( CoffeeScript.compile instanceof Function ) {
-                    try{ eval(CoffeeScript.compile(script.textContent)); }catch(err){ console.log(err.message); }
-                  }
-                }
-              });
-              
-              return this;
-         },
-         collection: function (html) {
-            for( var i = 0, len = this.length; i < len ; i++ ) {
-              this[i].render(html);
-            }
-            return this;
-         }
-      },
-      'text': {
-        element: function (text) {
-          if( text === undefined ) {
-            return this.textContent;
-          } else {
-            this.textContent = text;
-            return this;
-          }
-        },
-        collection: function (text) {
-            if( text === undefined ) {
-                text = '';
-                for( var i = 0, len = this.length; i < len ; i++ ) {
-                  text += this[i].textContent;
-                }
-                return text;
-            } else {
-                for( var i = 0, len = this.length; i < len ; i++ ) {
-                  this[i].textContent = text;
-                }
-            }
-            return this;
-        }
-      },
-      'on':{
-          element: function (event,handler) {
-              var elem = this;
-              if( isString(event) ) {
-                  if(isFunction(handler)) {
-                      var originalHandler = handler;
-                      handler = function(e){
-                          originalHandler.apply(e.target,[e].concat(e.data));
-                      }
-                      
-                      if (elem.addEventListener)  { // W3C DOM
-                          elem.addEventListener(event,handler,false);
-                      } else if (elem.attachEvent) { // IE DOM
-                          elem.attachEvent("on"+event, handler);
-                      } else throw 'No es posible añadir evento';
-                      
-                      if(!elem.listeners) elem.listeners = {};
-                      if( !elem.listeners[event] ) elem.listeners[event] = [];
-                      
-                      elem.listeners[event].push(handler);
-                  } else if( handler === false ) {
-                      if(elem.listeners) {
-                          if( elem.listeners[event] ) {
-                              var handlers = elem.listeners[event];
-                              while( handler = handlers.pop() ) {
-                                  if (elem.removeEventListener) elem.removeEventListener (event, handler, false);  // all browsers except IE before version 9
-                                  else if (elem.detachEvent) elem.detachEvent ('on'+event, handler);   // IE before version 9
-                              }
-                          }
-                      }
-                  }
-              }
-              
-              return this;
-          },
-          collection: function (event,handler) {
-              Array.prototype.forEach.call(this,function(elem){
-                  elem.on(event,handler);
-              });
-              
-              return this;
-          }
-      },
-      'off': {
-          element: function (event) { this.on(event,false); },
-          collection: function (event) { this.on(event,false); }
-      },
-      'trigger': {
-          element: function (event,data) {
-              triggerEvent(this, event, data);
-          },
-          collection: function (event,data){
-              Array.prototype.forEach.call(this,function(elem){
-                  triggerEvent(elem, event, data);
-              });
-          }
-      },
-      ready: {
-        element: ready,
-        collection: ready
       }
-  });
-  
-  return function $ (selector){
-    if( /^\<\w+.*\>$/.test(selector) ) {
-      var el = document.createElement('div');
-      el.innerHTML = selector;
-      return new listDOM(el.children);
+
+      return elems;
+    };
+
+  ListDOM.prototype.children = auxDiv.children ? function (selector){
+      var elems = new ListDOM();
+      
+      for( var i = 0, len = this.length; i < len; i++ ) {
+        pushMatches(elems, this[i].children);
+      }
+        
+      if( selector ) {
+        return elems.filter(selector);
+      }
+      return elems;
+
+    } : function (selector) {
+      var elems = new ListDOM(), elem;
+
+      Array.prototype.forEach.call(this,function(elem){
+        elem = elem.firstElementChild || elem.firstChild;
+        while(elem) {
+          elems[elems.length] = elem;
+          elem = elem.nextElementSibling || elem.nextSibling;
+        }
+      });
+
+      if( selector ) {
+        return elems.filter(selector);
+      }
+      return elems;
+    };
+
+  ListDOM.prototype.contents = function (selector) {
+      var elems = new ListDOM(), elem;
+
+      Array.prototype.forEach.call(this,function(elem){
+        elem = elem.firstChild;
+        while(elem) {
+          elems[elems.length] = elem;
+          elem = elem.nextSibling;
+        }
+      });
+
+      if( selector ) {
+        return elems.filter(selector);
+      }
+      return elems;
+    };
+
+    // function _cloneEvents(nodeSrc, nodeDest) {
+    //   console.log('getEventListeners', getEventListeners);
+    //   var events = getEventListeners(nodeSrc),
+    //       e, i, len;
+
+    //   for( e in events ) {
+    //     for( i = 0, len = events[e].length; i < len ; i++ ) {
+    //       nodeDest.addEventListener(e, events[e][i].listener, events[e][i].useCapture);
+    //     }
+    //   }
+    // }
+
+  ListDOM.prototype.clone = function (deep, cloneEvents) {
+    var list = new ListDOM(), i, len;
+
+    if( deep === undefined ) {
+      deep = true;
     }
-    return new listDOM(selector);
+
+    for( i = 0, len = this.length; i < len ; i++ ) {
+      list[i] = this[i].cloneNode(deep);
+
+      // if(cloneEvents) {
+      //   _cloneEvents(this[i], list[i]);
+      // }
+    }
+
+    list.length = len;
+
+    return list;
   };
+
+  ListDOM.prototype.data = auxDiv.dataset ? function (key, value) {
+      var i, len;
+
+      if( value === undefined ) {
+        if( key === undefined ) {
+          return this[0] ? this[0].dataset : {};
+        } else {
+          return ( this[0] || {} ).dataset[key];
+        }
+      } else {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].dataset[key] = value;
+        }
+        return this;
+      }
+    } : function (key, value) {
+      var i, len;
+      if( value === undefined ) {
+        var values = [];
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          values.push( this[i].getAttribute('data-' + key) );
+        }
+        return ( this[0] || { getAttribute: function() { return false; } } ).getAttribute(key);
+      } else {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].setAttribute('data-' + key, value);
+        }
+      }
+    };
+
+  ListDOM.prototype.removeData = auxDiv.dataset ? function (key) {
+      var i, len;
+      if( typeof key === 'string' ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          delete this[i].dataset[key];
+        }
+      } else if( key instanceof Array ) {
+        for( i = 0, len = key.length; i < len ; i++ ) {
+          this.removeData(key[i]);
+        }
+      }
+      return this;
+    } : function (key) {
+      var i, len;
+      if( typeof key === 'string' ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].removeAttribute('data-' + key);
+        }
+      } else if( key instanceof Array ) {
+        for( i = 0, len = key.length; i < len ; i++ ) {
+          this.removeData(key[i]);
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.attr = function (key, value) {
+      var i, len;
+      if( value instanceof Function ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].setAttribute( key, value(i, this[i].getAttribute(key) ) );
+        }
+      } else if( value !== undefined ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].setAttribute(key,value);
+        }
+      } else if( this[0] ) {
+        return this[0].getAttribute( key );
+      }
+      return this;
+    };
+
+  ListDOM.prototype.removeAttr = function (key) {
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+        this[i].removeAttribute(key);
+      }
+      return this;
+    };
+
+  ListDOM.prototype.prop = function (key, value) {
+      var i, len;
+
+      if( value instanceof Function ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i][key] = value( i, this[i][key] );
+        }
+      } else if( value !== undefined ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i][key] = value;
+        }
+      } else if( this[0] ) {
+        return this[0][key];
+      }
+      return this;
+    };
+
+  ListDOM.prototype.val = function (value) {
+      var element;
+      if( value === undefined ) {
+        element = this[0];
+        if( element.nodeName === 'select' ) {
+          return element.options[element.selectedIndex].value;
+        } else {
+          return ( this[0].value || this[0].getAttribute('value') );
+        }
+      } else {
+        for( var i = 0, len = this.length; i < len ; i++ ) {
+          if( this[i].nodeName === 'select' ) {
+            element = this[i];
+            for( var j = 0, len2 = element.options.length; j < len2 ; j++ ) {
+              if( element.options[j].value === value ) {
+                element.options[j].selected = true;
+                break;
+              }
+            }
+          } else if (this[i].value !== undefined) {
+            this[i].value = value;
+          } else {
+            this[i].setAttribute('value', value);
+          }
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.addClass = classListEnabled ? function (className) {
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          this[i].classList.add(className);
+      }
+      return this;
+    } : function (className) {
+      var RE_CLEANCLASS = new RegExp('\\b' + (className || '') + '\\b','');
+
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          this[i].className = this[i].className.replace(RE_CLEANCLASS,'') + ' ' + className;
+      }
+      return this;
+    };
+
+  ListDOM.prototype.removeClass = classListEnabled ? function (className) {
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          this[i].classList.remove(className);
+      }
+      return this;
+    } : function (className) {
+      var RE_REMOVECLASS = new RegExp('(\\b|\\s+)'+className+'\\b','g');
+
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          this[i].className = this[i].className.replace(RE_REMOVECLASS,'');
+      }
+      return this;
+    };
+
+  ListDOM.prototype.hasClass = classListEnabled ? function (className) {
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          if( this[i].classList.item(className) ) {
+              return true;
+          }
+      }
+      return false;
+    } : function (className) {
+      var RE_HASCLASS = new RegExp('\\b' + (className || '') + '\\b','');
+
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+          if( RE_HASCLASS.test(this[i].className) ) {
+              return true;
+          }
+      }
+      return false;
+    };
+
+  ListDOM.prototype.toggleClass = classListEnabled ? function (className, add) {
+      var i, len;
+
+      if( className === undefined ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          if ( this[i].classList.item(className) ) {
+            this[i].classList.remove(className);
+          } else {
+            this[i].classList.add(className);
+          }
+        }
+      } else if( add ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].classList.add(className);
+        }
+      } else {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].classList.remove(className);
+        }
+      }
+      return this;
+    } : function (className, add) {
+      var i, len,
+          RE_HASCLASS = new RegExp('\\b' + (className || '') + '\\b',''),
+          RE_CLEANCLASS = new RegExp('\\b' + (className || '') + '\\b',''),
+          RE_REMOVECLASS = new RegExp('(\\b|\\s+)'+className+'\\b','g');
+
+      if( className === undefined ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          if ( RE_HASCLASS.test(this[i].className) ) {
+            this[i].className = this[i].className.replace(RE_REMOVECLASS, '');
+          } else {
+            this[i].className = this[i].className.replace(RE_CLEANCLASS, '') + ' ' + className;
+          }
+        }
+      } else if( add ) {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].className = this[i].className.replace(RE_CLEANCLASS, '') + ' ' + className;
+        }
+      } else {
+        for( i = 0, len = this.length; i < len ; i++ ) {
+          this[i].className = this[i].className.replace(RE_REMOVECLASS, '');
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.append = function (content) {
+      var jContent = $(content), jContent2, i, j, len, len2, element;
+
+      jContent.remove();
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        jContent2 = jContent.clone(true);
+        element = this[i];
+        for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+          element.appendChild(jContent2[j]);
+        }
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.prepend = function (content) {
+      var jContent = $(content), jContent2, i, j, len, len2, element, previous;
+
+      jContent.remove();
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        jContent2 = jContent.clone(true);
+        element = this[i];
+        previous = element.firstChild;
+
+        if( previous ) {
+          console.log(jContent2);
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            element.insertBefore(jContent2[j], previous);
+          }
+        } else {
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            element.appendChild(jContent2[j]);
+          }
+        }
+
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.after = function (content) {
+      var jContent = $(content), jContent2, i, j, len, len2, element, parent;
+
+      jContent.remove();
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        jContent2 = jContent.clone(true);
+        parent = this[i].parentElement || this[i].parentNode;
+        element = this[i].nextElementSibling || this[i].nextSibling;
+        if( element ) {
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            parent.insertBefore(jContent2[j], element);
+            element = jContent2[j];
+          }
+        } else {
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            parent.appendChild(jContent2[j]);
+          }
+        }
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.replaceWith = function (content) {
+      var jContent = $(content), jContent2, i, j, len, len2, element, parent, next;
+
+      jContent.remove();
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        jContent2 = jContent.clone(true);
+        element = this[i];
+        parent = element.parentElement || parentNode;
+
+        parent.replaceChild(jContent2[0], element);
+
+        if( jContent2[1] ) {
+          next = jContent2[0];
+          for( j = 1, len2 = jContent2.length; j < len2; j++ ) {
+            parent.insertBefore(jContent2[j], next);
+          }
+        }
+
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.wrap = function (content) {
+      var jContent = $(content), jContent2, i, j, len, len2, element, parent;
+
+      jContent.remove();
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        jContent2 = jContent.clone(true);
+        parent = this[i].parentElement || this[i].parentNode;
+        element = this[i].nextElementSibling || this[i].nextSibling;
+        if( element ) {
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            parent.insertBefore(jContent2[j], element);
+            element = jContent2[j];
+          }
+        } else {
+          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
+            parent.appendChild(jContent2[j]);
+          }
+        }
+
+        if( jContent2[0] ) {
+          element = jContent2[0];
+          while( element.firstElementChild ) {
+            element = element.firstElementChild;
+          }
+          element.appendChild(this[i]);
+        }
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.next = function (selector) {
+      var list = new ListDOM(), elem;
+
+      for( var i = 0, len = this.length; i < len; i++ ) {
+        elem = this.nextElementSibling || this.nextSibling;
+        if( elem ) {
+          list.push(this[i]);
+        }
+      }
+
+      return ( typeof selector === 'string' ) ? list.filter(selector): list;
+    };
+
+  ListDOM.prototype.parent = function (selector) {
+      var list = new ListDOM(), elem;
+
+      for( var i = 0, len = this.length; i < len; i++ ) {
+        elem = this.parentElement || this.parentNode;
+        if( elem ) {
+          list.push(this[i]);
+        }
+      }
+
+      return ( typeof selector === 'string' ) ? list.filter(selector): list;
+    };
+
+  ListDOM.prototype.remove = function (selector) {
+      var list = selector ? this.filter(selector) : this, parent;
+
+      for( var i = 0, len = list.length; i < len; i++ ) {
+        parent = list[i].parentElement || list[i].parentNode;
+        if( parent ) {
+          parent.removeChild(list[i]);
+        }
+      }
+
+      return this;
+    };
+
+  ListDOM.prototype.detach = function (selector) {
+      var list = selector ? this.filter(selector) : this,
+          elems = new ListDOM();
+
+      for( var i = 0, len = list.length; i < len; i++ ) {
+        detached.appendChild(list[i]);
+        elems.push(list[i]);
+      }
+
+      return elems;
+    };
+
+  ListDOM.prototype.css = function (key, value) {
+
+      if( value ) {
+        for( var i = 0, len = this.length; i < len; i++ ) {
+          this[i].style[key] = value;
+        }
+        return this;
+      } else if( this[0] ) {
+        return this[0].style[key] || window.getComputedStyle(this[0])[key];
+      }
+
+      return '';
+    }; 
+
+  ListDOM.prototype.html = function (html) {
+      var i, len;
+      if( html === undefined ) {
+        html = '';
+        for( i = 0, len = this.length; i < len; i++ ) {
+          text += this[i].innerHTML;
+        }
+        return this;
+      } else if( html === true ) {
+        html = '';
+        for( i = 0, len = this.length; i < len; i++ ) {
+          text += this[i].outerHTML;
+        }
+        return this;
+      } else {
+        if( html instanceof Function ) {
+          for( i = 0, len = this.length; i < len; i++ ) {
+            this[i].innerHTML = html(i, this[i].innerHTML);
+          }
+          return this;
+        } else {
+          for( i = 0, len = this.length; i < len; i++ ) {
+            this[i].innerHTML = html;
+          }
+        }
+        this.find('script').each(function(script){
+          if( script.type == 'text/javascript' ) {
+            try{ runScripts('(function(){ \'use strict\';' + script.textContent + '})();'); }catch(err){ throw err.message; }
+          }
+        });
+        jqlite.plugin.init(this);
+      }
+      return this;
+    };
+
+    jqlite.$doc = jqlite(document);
+
+    jqlite.plugin = function (selector, handler, collection) {
+      if( typeof selector === 'string' && handler instanceof Function ) {
+        jqlite.plugin.cache[selector] = handler;
+        jqlite.plugin.cache[selector]._collection = !!collection;
+      }
+
+      if( ready() ) {
+        jqlite.plugin.init(jqlite.$doc);
+      } else {
+        ready(function () {
+          jqlite.plugin.init(jqlite.$doc);
+        });
+      }
+    };
+    jqlite.plugin.cache = {};
+
+    jqlite.plugin.init = function (jBase) {
+      var pluginsCache = jqlite.plugin.cache, pluginSelector, handler, elements;
+
+      for( pluginSelector in pluginsCache ) {
+
+        handler = pluginsCache[pluginSelector];
+        elements = jBase.find(pluginSelector);
+
+        if( elements.length ) {
+          if( handler._collection ) {
+            handler( elements );
+          } else {
+            elements.each(handler);
+          }
+        }
+      }
+
+    };
+    jqlite.widget = function (widgetName, handler, collection) {
+      jqlite.plugin('[data-widget="' + widgetName + '"]', handler, collection);
+    };
+
+  ListDOM.prototype.text = function (text) {
+      var i, len;
+      if( text === undefined ) {
+        text = '';
+        for( i = 0, len = this.length; i < len; i++ ) {
+          text += this[i].textContent;
+        }
+        return this;
+      } else if( text instanceof Function ) {
+        for( i = 0, len = this.length; i < len; i++ ) {
+          this[i].textContent = text(i, this[i].textContent);
+        }
+        return this;
+      } else {
+        for( i = 0, len = this.length; i < len; i++ ) {
+          this[i].textContent = text;
+        }
+        return this;
+      }
+    };
+
+  ListDOM.prototype.on = function (eventName, listener) {
+    if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
+      throw 'bad arguments';
+    }
+
+    for( var i = 0, len = this.length; i < len; i++ ) {
+      attachElementListener(this[i], eventName, listener);
+    }
+  };
+
+  var eventActions = {
+    list: ['click', 'focus', 'blur', 'submit'],
+    define: function (name) {
+      ListDOM.prototype[name] = function (listener) {
+        if( listener ) {
+          this.on(name, listener);
+        } else {
+          for( var i = 0, len = this.length; i < len; i++ ) {
+            this[i][name]();
+          }
+        }
+      };
+    },
+    init: function () {
+      for( var i = 0, len = eventActions.list.length, name; i < len; i++ ) {
+        eventActions.define(eventActions.list[i]);
+      }
+    }
+  };
+  eventActions.init();
+
+  function autoDestroyListener (element, eventName, listener) {
+    var _listener = function () {
+      detachElementListener(element, eventName, _listener);
+      listener();
+    };
+
+    return _listener;
+  }
+
+  ListDOM.prototype.one = function (eventName, listener) {
+    if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
+      throw 'bad arguments';
+    }
+
+    var element;
+
+    for( var i = 0, len = this.length; i < len; i++ ) {
+      element = this[i];
+      attachElementListener(element, eventName, autoDestroyListener(element, eventName, listener) );
+    }
+  };
+  ListDOM.prototype.once = ListDOM.prototype.one;
+
+  ListDOM.prototype.off = function (eventName, listener) {
+    if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
+      throw 'bad arguments';
+    }
+
+    for( var i = 0, len = this.length; i < len; i++ ) {
+      detachElementListener(this[i], eventName, listener);
+    }
+  };
+
+  ListDOM.prototype.trigger = function (eventName, args, data) {
+    if( typeof eventName !== 'string' ) {
+      throw 'bad arguments';
+    }
+
+    for( var i = 0, len = this.length; i < len; i++ ) {
+      triggerEvent(this[i], eventName, args, data);
+    }
+  };
+
+  ListDOM.prototype.stopPropagation = function () {
+    for( var i = 0, len = arguments.length; i < len; i++ ) {
+      this.on(arguments[i], function (e) {
+        e.stopPropagation();
+      });
+    }
+  };
+
+  // finally
+
+  return jqlite;
   
 });
 
