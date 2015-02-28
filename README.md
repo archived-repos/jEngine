@@ -14,6 +14,8 @@ jEngine
 Following jstools (altogether):
 
 [core](https://github.com/jstools/core.js)
+[![Bower version](https://badge.fury.io/bo/jstool-core.svg)](http://badge.fury.io/bo/jstool-core)
+[![Build Status](https://travis-ci.org/jstools/core.js.svg?branch=master)](https://travis-ci.org/jstools/core.js)
 
 [jqlite](https://github.com/jstools/jqlite)
 
