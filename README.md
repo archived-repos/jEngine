@@ -14,17 +14,36 @@ jEngine
 Following jstools (altogether):
 
 [core](https://github.com/jstools/core.js)
-[![Bower version](https://badge.fury.io/bo/jstool-core.svg)](http://badge.fury.io/bo/jstool-core)
+
+[![npm version](https://badge.fury.io/js/jstool-core.svg)](http://badge.fury.io/js/jstool-core)
 [![Build Status](https://travis-ci.org/jstools/core.js.svg?branch=master)](https://travis-ci.org/jstools/core.js)
 
 [jqlite](https://github.com/jstools/jqlite)
 
+[![npm version](https://badge.fury.io/js/jqlite.svg)](http://badge.fury.io/js/jqlite)
+[![Build Status](https://travis-ci.org/jstools/jqlite.svg?branch=master)](https://travis-ci.org/jstools/jqlite)
+
 [cookie](https://github.com/jstools/cookie.js)
+> cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
+> adapted to be used with jstools-core
 
 [events](https://github.com/jstools/events.js)
 
+[![npm version](https://badge.fury.io/js/jstool-events.svg)](http://badge.fury.io/js/jstool-events)
+[![Build Status](https://travis-ci.org/jstools/events.js.svg?branch=master)](https://travis-ci.org/jstools/events.js) 
+
 [http](https://github.com/jstools/http.js)
+
+[![npm version](https://badge.fury.io/js/jstool-http.svg)](http://badge.fury.io/js/jstool-http)
+[![Build Status](https://travis-ci.org/jstools/http.js.svg?branch=master)](https://travis-ci.org/jstools/http.js)
 
 [promise](https://github.com/jstools/promise.js)
 
+[![npm version](https://badge.fury.io/js/jstool-promise.svg)](http://badge.fury.io/js/jstool-promise)
+[![Build Status](https://travis-ci.org/jstools/promise.js.svg?branch=master)](https://travis-ci.org/jstools/promise.js)
+
 [scope](https://github.com/jstools/scope.js)
+
+[![npm version](https://badge.fury.io/js/jstool-scope.svg)](http://badge.fury.io/js/jstool-scope)
+[![Build Status](https://travis-ci.org/jstools/scope.js.svg?branch=master)](https://travis-ci.org/jstools/scope.js)
+
