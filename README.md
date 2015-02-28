@@ -13,16 +13,16 @@ jEngine
 
 Following jstools (altogether):
 
-[core](/jstool/core.js)
+[core](https://github.com/jstools/core.js)
 
-[jqlite](/jstool/jqlite)
+[jqlite](https://github.com/jstools/jqlite)
 
-[cookie](/jstool/cookie.js)
+[cookie](https://github.com/jstools/cookie.js)
 
-[events](/jstool/events.js)
+[events](https://github.com/jstools/events.js)
 
-[http](/jstool/http.js)
+[http](https://github.com/jstools/http.js)
 
-[promise](/jstool/promise.js)
+[promise](https://github.com/jstools/promise.js)
 
-[scope](/jstool/scope.js)
+[scope](https://github.com/jstools/scope.js)
