@@ -34,6 +34,7 @@
         "jstool-events": "*",
         "jstool-http": "*",
         "jstool-promise": "*",
+        "jstool-scope": "*",
         "load-grunt-tasks": "*",
         "time-grunt": "*"
     },
@@ -43,6 +44,7 @@
         "jstool-core",
         "jstool-events",
         "jstool-http",
-        "jstool-promise"
+        "jstool-promise",
+        "jstool-scope"
     ]
 }
