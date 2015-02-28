@@ -35,7 +35,6 @@ Following jstools (altogether):
 [http](https://github.com/jstools/http.js)
 
 [![npm version](https://badge.fury.io/js/jstool-http.svg)](http://badge.fury.io/js/jstool-http)
-[![Build Status](https://travis-ci.org/jstools/http.js.svg?branch=master)](https://travis-ci.org/jstools/http.js)
 
 [promise](https://github.com/jstools/promise.js)
 
