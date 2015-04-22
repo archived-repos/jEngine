@@ -30,7 +30,7 @@ Following jstools (altogether):
 [events](https://github.com/jstools/events.js)
 
 [![npm version](https://badge.fury.io/js/jstool-events.svg)](http://badge.fury.io/js/jstool-events)
-[![Build Status](https://travis-ci.org/jstools/events.js.svg?branch=master)](https://travis-ci.org/jstools/events.js) 
+[![Build Status](https://travis-ci.org/jstools/events.js.svg?branch=master)](https://travis-ci.org/jstools/events.js)
 
 [http](https://github.com/jstools/http.js)
 
@@ -46,3 +46,7 @@ Following jstools (altogether):
 [![npm version](https://badge.fury.io/js/jstool-scope.svg)](http://badge.fury.io/js/jstool-scope)
 [![Build Status](https://travis-ci.org/jstools/scope.js.svg?branch=master)](https://travis-ci.org/jstools/scope.js)
 
+[utils](https://github.com/jstools/utils.js)
+
+[![npm version](https://badge.fury.io/js/jstool-utils.svg)](http://badge.fury.io/js/jstool-utils)
+[![Build Status](https://travis-ci.org/jstools/utils.js.svg?branch=master)](https://travis-ci.org/jstools/utils.js)
