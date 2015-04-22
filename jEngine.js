@@ -362,7 +362,18 @@
 		return fn;
 	};
 
-	fn.load(function () {
+	fn.ready = function (callback) {
+		if( callback instanceof Function ) {
+			if (/loaded|complete/.test(document.readyState)) {
+		    callback();
+		  } else {
+				fn.load(callback);
+			}
+		}
+		return fn;
+	};
+
+	fn.ready(function () {
 		var missingDependencies = {}, dependencies, key, i, len;
 
 		for( key in fn.waiting ) {
@@ -391,22 +402,22 @@
 
 
 /*
- * jqlite - JavaScript library to query and manipulate DOM 
+ * jqlite - JavaScript library to query and manipulate DOM
 
  * The MIT License (MIT)
- * 
+ *
  * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -414,7 +425,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * 
+ *
  */
 
 (function (root, factory) {
@@ -579,47 +590,24 @@
 
   // document ready
 
+  var _onLoad = window.addEventListener ? function (listener) {
+    window.addEventListener('load', listener, false);
+  } : function (listener) {
+    window.attachEvent('onload', listener );
+  };
+
   function ready (callback) {
     if( callback instanceof Function ) {
-      if( ready.ready ) {
-        callback.call(document);
+      if (/loaded|complete/.test(document.readyState)) {
+        callback();
       } else {
-        ready.onceListeners.push(callback);
+        _onLoad(callback);
       }
-    } else if ( callback === undefined ) {
-      return ready.isReady;
     }
-  }
-
-  ready.isReady = false;
-  ready.ready = function () {
-    ready.isReady = true;
-    for( var i = 0, len = ready.onceListeners.length; i < len; i++) {
-      ready.onceListeners[i].call(document);
-    }
-    ready.onceListeners.splice(0, len);
-  };
-  ready.onceListeners = [];
-
-  if ( document.addEventListener ) {
-    ready._listener = function () {
-      document.removeEventListener( "DOMContentLoaded", ready._listener, false );
-      ready.ready();
-    };
-    document.addEventListener( "DOMContentLoaded", ready._listener, false );
-  } else if ( document.attachEvent ) {
-    ready._listener = function () {
-      if ( document.readyState === "complete" ) {
-        var args = arguments;
-        document.detachEvent( "onreadystatechange", ready._listener );
-        ready.ready();
-      }
-    };
-    document.attachEvent("onreadystatechange", ready._listener);
   }
 
   // ListDOM
-    
+
   function ListDOM(){}
 
   ListDOM.prototype = [];
@@ -641,7 +629,7 @@
         list[0] = item;
         list.length = 1;
       }
-      return list; 
+      return list;
     };
 
   ListDOM.prototype.find = function(selector) {
@@ -708,14 +696,14 @@
 
   ListDOM.prototype.filter = function(selector) {
       var elems = new ListDOM(), elem, i, len;
-      
+
       if( selector instanceof Function ) {
         for( i = 0, len = this.length, elem; i < len ; i++ ) {
           elem = this[i];
           if( selector.apply(elem,[elem]) ) {
             elems.push(elem);
           }
-        } 
+        }
       } else if( typeof selector === 'string' ) {
           for( i = 0, len = this.length, elem; i < len ; i++ ) {
             elem = this[i];
@@ -735,7 +723,7 @@
       }
 
       if( this.length === 1 ) {
-        
+
         elem = this[0].parentElement;
 
         while( elem ) {
@@ -774,11 +762,11 @@
 
   ListDOM.prototype.children = auxDiv.children ? function (selector){
       var elems = new ListDOM();
-      
+
       for( var i = 0, len = this.length; i < len; i++ ) {
         pushMatches(elems, this[i].children);
       }
-        
+
       if( selector ) {
         return elems.filter(selector);
       }
@@ -1267,7 +1255,7 @@
       }
 
       return '';
-    }; 
+    };
 
   ListDOM.prototype.html = function (html) {
       var i, len;
@@ -1312,9 +1300,9 @@
         jqlite.plugin.cache[selector]._collection = !!collection;
       }
 
-      if( jqlite.plugin.running ) {
+      if( !jqlite.plugin.ready ) {
         $.plugin.run(jqlite.$doc, selector);
-      } else {
+      } else if( jqlite.plugin.running ) {
         jqlite.plugin.running = true;
         jqlite.plugin.init(jqlite.$doc);
       }
@@ -1322,6 +1310,7 @@
     jqlite.plugin.running = false;
     jqlite.plugin.cache = {};
     jqlite.plugin.run = function (jBase, pluginSelector) {
+
       var handler = jqlite.plugin.cache[pluginSelector],
           elements = jBase.find(pluginSelector);
 
@@ -1339,6 +1328,7 @@
         for( var pluginSelector in jqlite.plugin.cache ) {
           jqlite.plugin.run(jBase, pluginSelector);
         }
+        jqlite.plugin.ready = true;
       });
     };
 
@@ -1351,13 +1341,13 @@
           console.log('running widget directly', widgetName);
           $('[data-widget="' + widgetName + '"]').each(handler);
         } else if( !jqWidget.loading ) {
+          jqWidget.loading = true;
           jqWidget.init();
         }
       }
     }
-    jqWidget.init = function () {
-      jqWidget.loading = true;
 
+    jqWidget.init = function () {
       ready(function () {
         jqlite.plugin('[data-widget]', function () {
           var widgetName = this.getAttribute('data-widget');
@@ -1401,22 +1391,24 @@
   ListDOM.prototype.on = function (eventName, listener) {
     var i, len;
 
-    if( eventName instanceof Array ) {
-
-      for( i = 0, len = eventName.length; i < len; i++ ) {
-        this.on(eventName[i], listener);
-      }
-
-    } else {
-
-      if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
-        throw 'bad arguments';
+    if( typeof eventName === 'string' ) {
+      if( !(listener instanceof Function) ) {
+        throw 'listener needs to be a function';
       }
 
       for( i = 0, len = this.length; i < len; i++ ) {
         attachElementListener(this[i], eventName, listener);
       }
+    } else if( eventName instanceof Array ) {
+      for( i = 0, len = eventName.length; i < len; i++ ) {
+        this.on(eventName[i], listener);
+      }
+    } else if( eventName instanceof Object ) {
+      for( i in eventName ) {
+        this.on(i, eventName[i]);
+      }
     }
+
     return this;
   };
 
@@ -1445,26 +1437,41 @@
   function autoDestroyListener (element, eventName, listener) {
     var _listener = function () {
       detachElementListener(element, eventName, _listener);
-      listener();
+      listener.apply(null, arguments);
     };
 
     return _listener;
   }
 
-  ListDOM.prototype.one = function (eventName, listener) {
-    if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
-      throw 'bad arguments';
+  ListDOM.prototype.once = function (eventName, listener) {
+
+    var i, len;
+
+    if( typeof eventName === 'string' ) {
+      if( !(listener instanceof Function) ) {
+        throw 'listener needs to be a function';
+      }
+
+      var element;
+
+      for( i = 0, len = this.length; i < len; i++ ) {
+        element = this[i];
+        attachElementListener(element, eventName, autoDestroyListener(element, eventName, listener) );
+      }
+    } else if( eventName instanceof Array ) {
+      for( i = 0, len = eventName.length; i < len; i++ ) {
+        this.once(eventName[i], listener);
+      }
+    } else if( eventName instanceof Object ) {
+      for( i in eventName ) {
+        this.once(i, eventName[i]);
+      }
     }
 
-    var element;
-
-    for( var i = 0, len = this.length; i < len; i++ ) {
-      element = this[i];
-      attachElementListener(element, eventName, autoDestroyListener(element, eventName, listener) );
-    }
     return this;
   };
-  ListDOM.prototype.once = ListDOM.prototype.one;
+  // for jQuery compatibility
+  ListDOM.prototype.one = ListDOM.prototype.once;
 
   ListDOM.prototype.off = function (eventName, listener) {
     if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
@@ -1499,7 +1506,7 @@
   // finally
 
   return jqlite;
-  
+
 });
 
 
@@ -1509,17 +1516,17 @@
 // cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
 // adapted to be used with jstools-core
 
-(function (cookie) {
+(function (definition) {
 
   if ( typeof window === 'undefined' ) {
     if ( typeof module !== 'undefined' ) {
-      module.exports = cookie;
+      module.exports = definition();
     }
   } else {
     if ( window.fn ) {
-      fn.define('cookie', cookie)
+      fn.define('cookie', definition)
     } else if( !window.cookie ) {
-      window.cookie = cookie;
+      window.cookie = definition();
     }
   }
 
@@ -1735,6 +1742,30 @@
         return dest;
     }
 
+    function serializeParams (params, prefix, notFirst) {
+        if( params ) {
+
+            prefix = prefix || '';
+            notFirst = notFirst || 0;
+
+            if( params instanceof Function ) {
+                return ( notFirst ? '&' : '' ) + encodeURIComponent(prefix) + '=' + encodeURIComponent( params() );
+            } else if( params instanceof Object ) {
+                var paramsStr = '';
+
+                for( var key in params ) {
+                    paramsStr += serializeParams( params[key], ( prefix ? (prefix + '.') : '' ) + key, notFirst++ );
+                }
+
+                return paramsStr;
+
+            } else {
+                return ( notFirst ? '&' : '' ) + encodeURIComponent(prefix) + '=' + encodeURIComponent(params);
+            }
+
+        } else return '';
+    }
+
     function toTitleSlug(text) {
         var key = text[0].toUpperCase() + text.substr(1);
         return key.replace(/([a-z])([A-Z])/, function (match, lower, upper) {
@@ -1804,6 +1835,8 @@
         var data = request.responseText;
         if( request.headers.contentType === 'application/json' ) {
             data = JSON.parse(data);
+        } else if( request.headers.contentType === 'application/xml' ) {
+            data = (new DOMParser()).parseFromString(data, 'text/xml');
         }
 
         if( catchCodes[request.status] ) {
@@ -1820,13 +1853,30 @@
         }
     }
 
+    function HttpUrl (url) {
+        this.url = url;
+    }
+
+    ['get', 'head', 'options', 'post', 'put', 'delete', 'patch'].forEach(function (method) {
+        HttpUrl.prototype[method] = function () {
+            var args = [this.url];
+
+            [].push.apply(args, arguments);
+
+            return http[method].apply(null, args);
+        };
+    });
+
     function http (url, _options){
 
         if( url instanceof Object ) {
             _options = url;
             url = _options.url;
         }
-        _options = _options || {};
+
+        if( _options === undefined ) {
+            return new HttpUrl(url);
+        }
 
         var options = extend({}, http.defaults),
             key,
@@ -1850,6 +1900,12 @@
         if( !url ) {
             throw 'url missing';
             return false;
+        }
+
+        if( /^get$/.test(options.method) && options.data instanceof Object && Object.keys(options.data).length ) {
+            console.log('options.data', options.data);
+            url += '?' + serializeParams(options.data);
+            options.data = null;
         }
         
         var request = null;
@@ -1906,13 +1962,11 @@
     http.defaults = {
         method: 'get',
         headers: {
-            // accept: 'application/json',
             contentType: 'application/json'
         }
     };
 
-    http.get = http;
-    ['head', 'options', 'post', 'put', 'delete'].forEach(function (method) {
+    ['get', 'head', 'options', 'post', 'put', 'delete'].forEach(function (method) {
         http[method] = function (url, data, _options){
 
             if( url instanceof Object ) {
@@ -1997,19 +2051,19 @@
  * css.js
  *
  * The MIT License (MIT)
- * 
+ *
  * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -2017,7 +2071,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * 
+ *
  */
 
 (function (definition, root) {
@@ -2061,21 +2115,29 @@
 		return (step && step[action]) ? step : false;
 	}
 
-	function processResult (promise, status, action, value) {
+	var actionByStatus = {
+		fulfilled: 'then',
+		rejected: 'catch'
+	};
 
-		var step = getStep(promise.queue, action);
+	function processResult (promise, status, value) {
+
+		var action = actionByStatus[ status ],
+			step = getStep(promise.queue, action);
 
 		if( step ) {
 			promise['[[PromiseStatus]]'] = status;
 			if( value !== undefined ) {
 				promise['[[PromiseValue]]'] = value;
 			}
+		} else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
+			throw new Error('unhandled promise');
 		} else {
 			step = promise.queue.finally.shift();
 
 			while( step ) {
 				step(value);
-				step = getStep(promise.queue.finally, action);
+				step = promise.queue.finally.shift();
 			}
 
 			step = false;
@@ -2103,7 +2165,7 @@
 				});
 
 			} else {
-				
+
 				switch ( promise['[[PromiseStatus]]'] ) {
 					case 'fulfilled':
 						promise.resolve( ( newValue === undefined ) ? value : newValue );
@@ -2141,17 +2203,16 @@
 	}
 
 	P.prototype.then = function (onFulfilled, onRejected) {
-		if( onFulfilled instanceof Function ) {
-			this.queue.push({ then: onFulfilled, catch: onRejected });
-		}
+		this.queue.push({
+			then: ( onFulfilled instanceof Function ) ? onFulfilled : false,
+			catch: ( onRejected instanceof Function ) ? onRejected : false
+		});
 
 		return this;
 	};
 
 	P.prototype.catch = function (onRejected) {
-		if( onRejected instanceof Function ) {
-			this.queue.push({ catch: onRejected });
-		}
+		this.then(undefined, onRejected);
 
 		return this;
 	};
@@ -2165,11 +2226,11 @@
 	};
 
 	P.prototype.resolve = function (value) {
-		return processResult(this, 'fulfilled', 'then', value);
+		return processResult(this, 'fulfilled', value);
 	};
 
 	P.prototype.reject = function (value) {
-		return processResult(this, 'rejected', 'catch', value);
+		return processResult(this, 'rejected', value);
 	};
 
 	P.defer = function () {
@@ -2187,6 +2248,53 @@
 			}
 		});
 		return whenPromise;
+	};
+
+	P.all = function (promisesList) {
+
+		promisesList = ( promisesList instanceof Array ) ? promisesList : [];
+
+    var pending = promisesList.length, promisesResult = [];
+    promisesResult.length = promisesList.length;
+
+		return new P(function (resolve, reject) {
+
+			if( !pending ) {
+				resolve([]);
+				return;
+			}
+
+			promisesList.forEach(function (promise, index) {
+				if( promise instanceof Object && promise.then ) {
+
+          if( promise['[[PromiseStatus]]'] === 'fulfilled' ) {
+            promisesResult[index] = promise['[[PromiseValue]]'];
+            pending--;
+
+            if( !pending ) {
+                resolve(promisesResult);
+            }
+      		} else if( promise['[[PromiseStatus]]'] === 'reject' ) {
+            reject(promise['[[PromiseValue]]']);
+      		} else {
+  					promise.then(function (result) {
+
+  						promisesResult[index] = result;
+              pending--;
+
+  						if( !pending ) {
+              		resolve(promisesResult);
+  						}
+
+  					}, reject);
+          }
+
+				} else {
+					throw { promise: promise, error: 'is not a promise' };
+				}
+			});
+		});
+
 	};
 
 	return P;
@@ -2270,7 +2378,7 @@
 /*  ----------------------------------------------------------------------------------------- */
 
 /*
- * css.js
+ * utils.js
  *
  * The MIT License (MIT)
  * 
