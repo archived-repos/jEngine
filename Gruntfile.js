@@ -45,9 +45,6 @@ module.exports = function(grunt) {
       main: {
         src: [
           '.tmp/license.js',
-          '.tmp/jstool-core/**/fix-ie.js',
-          '.tmp/jstool-core/**/log.js',
-          '.tmp/jstool-core/**/fn.js',
           '.tmp/jstool-core/**/*.js',
           '.tmp/**/*.js'
         ],

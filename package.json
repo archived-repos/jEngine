@@ -1,6 +1,6 @@
 {
     "name": "jengine",
-    "version": "0.1.19",
+    "version": "0.1.20",
     "description": "A Powerful javascript framework to build your website/application",
     "main": "jEngine.js",
     "scripts": {
