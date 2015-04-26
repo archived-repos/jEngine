@@ -13,40 +13,40 @@ jEngine
 
 Following jstools (altogether):
 
-[core](https://github.com/jstools/core.js)
+[jn-core](https://github.com/jstools/jn-core)
 
-[![npm version](https://badge.fury.io/js/jstool-core.svg)](http://badge.fury.io/js/jstool-core)
-[![Build Status](https://travis-ci.org/jstools/core.js.svg?branch=master)](https://travis-ci.org/jstools/core.js)
+[![npm version](https://badge.fury.io/js/jn-core.svg)](http://badge.fury.io/js/jn-core)
+[![Build Status](https://travis-ci.org/jstools/jn-core.svg?branch=master)](https://travis-ci.org/jstools/jn-core)
 
 [jqlite](https://github.com/jstools/jqlite)
 
 [![npm version](https://badge.fury.io/js/jqlite.svg)](http://badge.fury.io/js/jqlite)
 [![Build Status](https://travis-ci.org/jstools/jqlite.svg?branch=master)](https://travis-ci.org/jstools/jqlite)
 
-[cookie](https://github.com/jstools/cookie.js)
+[jn-cookie](https://github.com/jstools/jn-cookie)
 > cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
 > adapted to be used with jstools-core
 
-[events](https://github.com/jstools/events.js)
+[jn-events](https://github.com/jstools/jn-events)
 
-[![npm version](https://badge.fury.io/js/jstool-events.svg)](http://badge.fury.io/js/jstool-events)
-[![Build Status](https://travis-ci.org/jstools/events.js.svg?branch=master)](https://travis-ci.org/jstools/events.js)
+[![npm version](https://badge.fury.io/js/jn-events.svg)](http://badge.fury.io/js/jn-events)
+[![Build Status](https://travis-ci.org/jstools/jn-events.svg?branch=master)](https://travis-ci.org/jstools/jn-events)
 
-[http](https://github.com/jstools/http.js)
+[http](https://github.com/jstools/jn-http)
 
-[![npm version](https://badge.fury.io/js/jstool-http.svg)](http://badge.fury.io/js/jstool-http)
+[![npm version](https://badge.fury.io/js/jn-http.svg)](http://badge.fury.io/js/jn-http)
 
-[promise](https://github.com/jstools/promise.js)
+[promise](https://github.com/jstools/jn-promise)
 
-[![npm version](https://badge.fury.io/js/jstool-promise.svg)](http://badge.fury.io/js/jstool-promise)
-[![Build Status](https://travis-ci.org/jstools/promise.js.svg?branch=master)](https://travis-ci.org/jstools/promise.js)
+[![npm version](https://badge.fury.io/js/jn-promise.svg)](http://badge.fury.io/js/jn-promise)
+[![Build Status](https://travis-ci.org/jstools/jn-promise.svg?branch=master)](https://travis-ci.org/jstools/jn-promise)
 
-[scope](https://github.com/jstools/scope.js)
+[scope](https://github.com/jstools/jn-scope)
 
-[![npm version](https://badge.fury.io/js/jstool-scope.svg)](http://badge.fury.io/js/jstool-scope)
-[![Build Status](https://travis-ci.org/jstools/scope.js.svg?branch=master)](https://travis-ci.org/jstools/scope.js)
+[![npm version](https://badge.fury.io/js/jn-scope.svg)](http://badge.fury.io/js/jn-scope)
+[![Build Status](https://travis-ci.org/jstools/jn-scope.svg?branch=master)](https://travis-ci.org/jstools/jn-scope)
 
-[utils](https://github.com/jstools/utils.js)
+[utils](https://github.com/jstools/jn-utils)
 
-[![npm version](https://badge.fury.io/js/jstool-utils.svg)](http://badge.fury.io/js/jstool-utils)
-[![Build Status](https://travis-ci.org/jstools/utils.js.svg?branch=master)](https://travis-ci.org/jstools/utils.js)
+[![npm version](https://badge.fury.io/js/jn-utils.svg)](http://badge.fury.io/js/jn-utils)
+[![Build Status](https://travis-ci.org/jstools/jn.js.svg?branch=master)](https://travis-ci.org/jstools/jn-utils)
