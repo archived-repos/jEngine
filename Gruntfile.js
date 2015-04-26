@@ -45,7 +45,7 @@ module.exports = function(grunt) {
       main: {
         src: [
           '.tmp/license.js',
-          '.tmp/jstool-core/**/*.js',
+          '.tmp/jn-core/**/*.js',
           '.tmp/**/*.js'
         ],
         dest: '<%= pkg.main %>',
@@ -106,14 +106,6 @@ module.exports = function(grunt) {
     pkg.jstools.forEach(function (dependenceName) {
       jstool2Tmp(dependenceName, grunt.file.readJSON('node_modules/' + dependenceName + '/package.json').main);
     });
-
-    // for( var dependenceName in pkg.devDependencies ) {
-    //   dependencePkg = grunt.file.readJSON('node_modules/' + dependenceName + '/package.json');
-
-    //   if( dependencePkg.jstool ) {
-    //     jstool2Tmp(dependenceName, dependencePkg.jstool);
-    //   }
-    // }
   });
 
   grunt.registerTask('build', [ 'clean:tmp', 'process-jstools', 'concat:main', 'uglify:min' ]);
