@@ -32,21 +32,21 @@ Following jstools (altogether):
 [![npm version](https://badge.fury.io/js/jn-events.svg)](http://badge.fury.io/js/jn-events)
 [![Build Status](https://travis-ci.org/jstools/jn-events.svg?branch=master)](https://travis-ci.org/jstools/jn-events)
 
-[http](https://github.com/jstools/jn-http)
+[jn-http](https://github.com/jstools/jn-http)
 
 [![npm version](https://badge.fury.io/js/jn-http.svg)](http://badge.fury.io/js/jn-http)
 
-[promise](https://github.com/jstools/jn-promise)
+[jn-promise](https://github.com/jstools/jn-promise)
 
 [![npm version](https://badge.fury.io/js/jn-promise.svg)](http://badge.fury.io/js/jn-promise)
 [![Build Status](https://travis-ci.org/jstools/jn-promise.svg?branch=master)](https://travis-ci.org/jstools/jn-promise)
 
-[scope](https://github.com/jstools/jn-scope)
+[jn-scope](https://github.com/jstools/jn-scope)
 
 [![npm version](https://badge.fury.io/js/jn-scope.svg)](http://badge.fury.io/js/jn-scope)
 [![Build Status](https://travis-ci.org/jstools/jn-scope.svg?branch=master)](https://travis-ci.org/jstools/jn-scope)
 
-[utils](https://github.com/jstools/jn-utils)
+[jn-utils](https://github.com/jstools/jn-utils)
 
 [![npm version](https://badge.fury.io/js/jn-utils.svg)](http://badge.fury.io/js/jn-utils)
 [![Build Status](https://travis-ci.org/jstools/jn.js.svg?branch=master)](https://travis-ci.org/jstools/jn-utils)
