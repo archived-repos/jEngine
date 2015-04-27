@@ -44,8 +44,9 @@ module.exports = function(grunt) {
       },
       main: {
         src: [
-          '.tmp/license.js',
-          '.tmp/jn-core/**/*.js',
+          '.tmp/{,**/}fn.js',
+          '.tmp/{,**/}jqlite.js',
+          '.tmp/{,**/}jq-plugin.js',
           '.tmp/**/*.js'
         ],
         dest: '<%= pkg.main %>',
