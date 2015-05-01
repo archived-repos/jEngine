@@ -1369,14 +1369,14 @@
       jq.plugin.cache[selector]._collection = !!collection;
     }
 
-    if( !jq.plugin.ready ) {
-      $.plugin.run($doc, selector);
-    } else if( jq.plugin.running ) {
-      jq.plugin.running = true;
+    if( jq.plugin.ready ) {
+      jq.plugin.run($doc, selector);
+    } else if( !jq.plugin.loading ) {
+      jq.plugin.loading = true;
       jq.plugin.init($doc);
     }
   };
-  jq.plugin.running = false;
+  jq.plugin.loading = false;
   jq.plugin.cache = {};
   jq.plugin.run = function (jBase, pluginSelector) {
 
@@ -1393,10 +1393,11 @@
   };
 
   jq.plugin.init = function (jBase) {
-    $(function () {
+    jq(function () {
       for( var pluginSelector in jq.plugin.cache ) {
         jq.plugin.run(jBase, pluginSelector);
       }
+      jq.plugin.loading = false;
       jq.plugin.ready = true;
     });
   };
@@ -1408,7 +1409,7 @@
 
       if( jqWidget.enabled ) {
         console.log('running widget directly', widgetName);
-        $('[data-widget="' + widgetName + '"]').each(handler);
+        jq('[data-widget="' + widgetName + '"]').each(handler);
       } else if( !jqWidget.loading ) {
         jqWidget.loading = true;
         jqWidget.init();
@@ -1417,7 +1418,7 @@
   }
 
   jqWidget.init = function () {
-    $(function () {
+    jq(function () {
       jq.plugin('[data-widget]', function () {
         var widgetName = this.getAttribute('data-widget');
 
@@ -1427,8 +1428,8 @@
           jqWidget.widgets[widgetName].call(this);
         }
       });
-      jqWidget.enabled = true;
       jqWidget.loading = false;
+      jqWidget.enabled = true;
     });
   };
   jqWidget.widgets = {};
@@ -1481,10 +1482,8 @@
 (function (root, factory) {
     'use strict';
 
-    if ( typeof root === 'undefined' ) {
-        if ( typeof module !== 'undefined' ) {
-            module.exports = factory();
-        }
+    if ( typeof module !== 'undefined' ) {
+        module.exports = factory();
     } else {
     	if ( root.define !== undefined ) {
             root.define('compile', factory );
@@ -1714,9 +1713,10 @@
             content = _cmd[this.cmd].apply(
                           this.options,
                           [scope, this.expression]
-                      );
+                      ),
+            contentRendered = _evalContent(scope, content);
 
-        return '' + _evalContent(scope, content);
+        return contentRendered === undefined ? '' : contentRendered;
     };
 
     function compile (template) {
@@ -2642,19 +2642,19 @@
  * css.js
  *
  * The MIT License (MIT)
- * 
+ *
  * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -2662,26 +2662,24 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * 
+ *
  */
 
 
-(function (definition) {
+(function (root, definition) {
 	'use strict';
-	
-	if ( typeof window === 'undefined' ) {
-		if ( typeof module !== 'undefined' ) {
-			module.exports = definition();
-		}
+
+	if ( typeof module !== 'undefined' ) {
+		module.exports = definition();
 	} else {
-		if ( window.fn ) {
-			fn.define('Scope', definition );
-		} else if( !window.Scope ) {
-			window.Scope = definition();
+		if ( root.define ) {
+			define('Scope', definition );
+		} else if( !root.Scope ) {
+			root.Scope = definition();
 		}
 	}
 
-})(function () {
+})(this, function () {
 	'use strict';
 
     function parseExpression (expression) {
