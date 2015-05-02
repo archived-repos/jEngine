@@ -3,19 +3,19 @@
 var grunt = require('grunt'),
     path = require('path');
 
-function jstool2Tmp (dependenceName, filepath) {
-  if( filepath instanceof Array ) {
-    for( var i = 0, len = filepath.length; i < len; i++ ) {
-      jstool2Tmp(dependenceName, filepath[i]);
-    }
-  } else if( typeof filepath === 'string' ) {
-    grunt.file.copy( path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
-        path.join( process.cwd(), '.tmp', dependenceName, filepath )
-    ,{
-      encoding: 'utf8'
-    });
-  }
-}
+// function jstool2Tmp (dependenceName, filepath) {
+//   if( filepath instanceof Array ) {
+//     for( var i = 0, len = filepath.length; i < len; i++ ) {
+//       jstool2Tmp(dependenceName, filepath[i]);
+//     }
+//   } else if( typeof filepath === 'string' ) {
+//     grunt.file.copy( path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
+//         path.join( process.cwd(), '.tmp', dependenceName, filepath )
+//     {
+//       encoding: 'utf8'
+//     });
+//   }
+// }
 
 module.exports = function(grunt) {
 
@@ -33,8 +33,8 @@ module.exports = function(grunt) {
     pkg: pkg,
 
     clean: {
-      tmp: {
-        src: [".tmp"]
+      tests: {
+        src: [".tests"]
       }
     },
 
@@ -47,7 +47,7 @@ module.exports = function(grunt) {
           '.tmp/{,**/}fn.js',
           '.tmp/{,**/}jqlite.js',
           '.tmp/{,**/}jq-plugin.js',
-          '.tmp/**/*.js'
+          '.tmp/{,**/}*.js'
         ],
         dest: '<%= pkg.main %>',
       },
@@ -82,6 +82,7 @@ module.exports = function(grunt) {
         command: 'npm publish'
       }
     },
+
     'increase-version': {
       bower: {
         options: {
@@ -91,27 +92,63 @@ module.exports = function(grunt) {
         }
       }
     },
+
+    jshint: {
+      gruntfile: [ 'Gruntfile.js' ],
+      main: [ '<%= pkg.main %>' ],
+      options: {
+        jshintrc: '.jshintrc'
+      }
+    },
+
     karma: {
-      files: [
-        'test/*.js'
-      ]
+      unit: {
+        configFile: 'karma.conf.js'
+      }
     }
 
   });
 
-  grunt.registerTask('process-jstools', function () {
-    var dependencePkg, license = grunt.file.read('LICENSE');
+  grunt.registerTask('jengine-build', function () {
+    var manager = require('package-manager')('npm'),
+        jEngineSrc = '';
 
-    grunt.file.write('.tmp/license.js', grunt.template.process('/*\n * <%= pkg.name %> - <%= pkg.description %>\n\n') + license.replace(/(.*)\n?/g, ' * $1\n') + ' */\n\n' );
+    manager.find();
 
-    pkg.jstools.forEach(function (dependenceName) {
-      jstool2Tmp(dependenceName, grunt.file.readJSON('node_modules/' + dependenceName + '/package.json').main);
+    var expandedList = grunt.file.expand(manager.fileList);
+
+    expandedList.forEach(function (filePath) {
+      jEngineSrc += grunt.file.read(filePath);
     });
+
+    jEngineSrc += grunt.file.read('globalize.js');
+    
+    console.log('expandedList', expandedList);
+
+    grunt.file.write('jEngine.js', jEngineSrc);
   });
 
-  grunt.registerTask('build', [ 'clean:tmp', 'process-jstools', 'concat:main', 'uglify:min' ]);
+  grunt.registerTask('copy-tests', function () {
+    var testsPaths;
+
+    grunt.file.delete('./.tests');
+
+    for( var dependence in pkg.dependencies ) {
+
+      /*jshint loopfunc: true */
+      grunt.file.expand(['node_modules/' + dependence + '/tests/{,**/}*.js'])
+        .forEach(function (testPath) {
+          grunt.file.write( '.tests/' + dependence + '/' + testPath.split('/').slice(3).join('/'), grunt.file.read(testPath) );
+          console.log('testPath', testPath, '.tests/' + dependence + '/' + testPath.split('/').slice(3).join('/') );
+        });
+    }
+  });
+
+  grunt.registerTask('test', ['jengine-build', 'copy-tests', 'karma']);
 
   grunt.registerTask('git:push-version', [ 'shell:git-add', 'shell:git-commit-version', 'shell:git-push' ]);
+
+  grunt.registerTask('build', [ 'jengine-build', 'uglify:min' ]);
 
   grunt.registerTask('publish', [ 'build', 'increase-version', 'git:push-version', 'shell:npm-publish' ]);
 

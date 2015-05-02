@@ -1,0 +1,13 @@
+{
+  "curly": true,
+  "eqnull": true,
+  "eqeqeq": true,
+  "undef": true,
+  "browser": true,
+  "node": true,
+  "bitwise": true,
+  "validthis": true,
+  "globals": {
+    "console": true
+  }
+}
