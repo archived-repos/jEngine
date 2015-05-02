@@ -1,56 +1,56 @@
 {
-  "name": "jengine",
-  "version": "0.1.23",
-  "description": "A Powerful javascript framework to build your website/application",
-  "main": "jEngine.js",
-  "scripts": {
-    "test": "grunt test",
-    "posttest": "grunt uglify:min"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jstools/jEngine.git"
-  },
-  "keywords": [
-    "javascript",
-    "jstools",
-    "framework"
-  ],
-  "author": "Jesús Manuel Germade Castiñeiras <jesus@germade.es>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/jstools/jEngine/issues"
-  },
-  "homepage": "https://github.com/jstools/jEngine",
-  "dependencies": {
-    "jqlite": "*",
-    "jq-plugin": "*",
-    "jstools-fn": "*",
-    "jstools-cookie": "*",
-    "jstools-events": "*",
-    "jstools-http": "*",
-    "jstools-promise": "*",
-    "jstools-scope": "*",
-    "jstools-compile": "*",
-    "jstools-utils": "*"
-  },
-  "devDependencies": {
-    "grunt": "*",
-    "grunt-contrib-clean": "*",
-    "grunt-contrib-concat": "*",
-    "grunt-contrib-jshint": "^0.11.2",
-    "grunt-contrib-uglify": "*",
-    "grunt-increase-version": "*",
-    "grunt-karma": "^0.10.1",
-    "grunt-shell": "*",
-    "jasmine": "^2.1.1",
-    "jasmine-core": "^2.1.3",
-    "karma": "^0.12.31",
-    "karma-chrome-launcher": "^0.1.7",
-    "karma-firefox-launcher": "^0.1.4",
-    "karma-jasmine": "^0.3.2",
-    "load-grunt-tasks": "*",
-    "package-manager": "0.0.16",
-    "time-grunt": "*"
-  }
+    "name": "jengine",
+    "version": "0.1.24",
+    "description": "A Powerful javascript framework to build your website/application",
+    "main": "jEngine.js",
+    "scripts": {
+        "test": "grunt test",
+        "posttest": "grunt uglify:min"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jstools/jEngine.git"
+    },
+    "keywords": [
+        "javascript",
+        "jstools",
+        "framework"
+    ],
+    "author": "Jesús Manuel Germade Castiñeiras <jesus@germade.es>",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/jstools/jEngine/issues"
+    },
+    "homepage": "https://github.com/jstools/jEngine",
+    "dependencies": {
+        "jqlite": "*",
+        "jq-plugin": "*",
+        "jstools-fn": "*",
+        "jstools-cookie": "*",
+        "jstools-events": "*",
+        "jstools-http": "*",
+        "jstools-promise": "*",
+        "jstools-scope": "*",
+        "jstools-compile": "*",
+        "jstools-utils": "*"
+    },
+    "devDependencies": {
+        "grunt": "*",
+        "grunt-contrib-clean": "*",
+        "grunt-contrib-concat": "*",
+        "grunt-contrib-jshint": "^0.11.2",
+        "grunt-contrib-uglify": "*",
+        "grunt-increase-version": "*",
+        "grunt-karma": "^0.10.1",
+        "grunt-shell": "*",
+        "jasmine": "^2.1.1",
+        "jasmine-core": "^2.1.3",
+        "karma": "^0.12.31",
+        "karma-chrome-launcher": "^0.1.7",
+        "karma-firefox-launcher": "^0.1.4",
+        "karma-jasmine": "^0.3.2",
+        "load-grunt-tasks": "*",
+        "package-manager": "0.0.16",
+        "time-grunt": "*"
+    }
 }
