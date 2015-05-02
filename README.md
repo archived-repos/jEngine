@@ -1,5 +1,5 @@
-jEngine
-=======
+jEngine [![wercker status](https://app.wercker.com/status/57b07bc9c517eb6e90931964845da012/s "wercker status")](https://app.wercker.com/project/bykey/57b07bc9c517eb6e90931964845da012)
+==============
 
 >	jEngine - A Powerful JavaScript framework to build your website/application.
 
