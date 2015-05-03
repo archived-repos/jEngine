@@ -12,10 +12,11 @@ jEngine [![wercker status](https://app.wercker.com/status/57b07bc9c517eb6e909319
 >	it under the terms of the GNU General Public License as published by
 >	the Free Software Foundation, either version 3 of the License.
 
-=======
+#### jEngine is a collection of [jsTools](//jstools.github.io) libraries packaged altogether
+> these libraries can be used separately
 
-Following jstools (altogether):
-
+Libraries included
+------------------
 [fn](https://github.com/jstools/fn)
 
 [![npm version](https://badge.fury.io/js/jstools-fn.svg)](http://badge.fury.io/js/jstools-fn)
@@ -26,11 +27,21 @@ Following jstools (altogether):
 [![npm version](https://badge.fury.io/js/jqlite.svg)](http://badge.fury.io/js/jqlite)
 [![Build Status](https://travis-ci.org/jstools/jqlite.svg?branch=master)](https://travis-ci.org/jstools/jqlite)
 
+[jq-plugin](https://github.com/jstools/jq-plugin)
+
+[![npm version](https://badge.fury.io/js/jq-plugin.svg)](http://badge.fury.io/js/jq-plugin)
+[![Build Status](https://travis-ci.org/jstools/jq-plugin.svg?branch=master)](https://travis-ci.org/jstools/jq-plugin)
+
+[compile](https://github.com/jstools/compile)
+
+[![npm version](https://badge.fury.io/js/jstools-compile.svg)](http://badge.fury.io/js/jstools-compile)
+[![Build Status](https://travis-ci.org/jstools/compile.svg?branch=master)](https://travis-ci.org/jstools/compile)
+
 [cookie](https://github.com/jstools/jstools-cookie)
 > cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
 > adapted to be used with jstools-core
 
-[jn-events](https://github.com/jstools/jstools-events)
+[events](https://github.com/jstools/jstools-events)
 
 [![npm version](https://badge.fury.io/js/jstools-events.svg)](http://badge.fury.io/js/jstools-events)
 [![Build Status](https://travis-ci.org/jstools/events.svg?branch=master)](https://travis-ci.org/jstools/events)
