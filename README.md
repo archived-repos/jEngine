@@ -1,5 +1,8 @@
 jEngine [![wercker status](https://app.wercker.com/status/57b07bc9c517eb6e90931964845da012/s "wercker status")](https://app.wercker.com/project/bykey/57b07bc9c517eb6e90931964845da012)
 ==============
+[![Bower version](https://badge.fury.io/bo/jengine.svg)](http://badge.fury.io/bo/jengine)
+[![npm version](https://badge.fury.io/js/jengine.svg)](http://badge.fury.io/js/jengine)
+[![Build Status](https://travis-ci.org/jstools/jEngine.svg?branch=master)](https://travis-ci.org/jstools/jEngine)
 
 >	jEngine - A Powerful JavaScript framework to build your website/application.
 

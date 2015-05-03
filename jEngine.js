@@ -2095,10 +2095,11 @@
 
 	function processResult (promise, status, value) {
 
-		var action = actionByStatus[ status ],
-			step = getStep(promise.queue, action);
 
-		if( step ) {
+		var action = actionByStatus[ status ],
+			  step = getStep(promise.queue, action);
+
+    if( step ) {
 			promise['[[PromiseStatus]]'] = status;
 			if( value !== undefined ) {
 				promise['[[PromiseValue]]'] = value;
@@ -2263,7 +2264,12 @@
           }
 
 				} else {
-					throw { promise: promise, error: 'is not a promise' };
+          promisesResult[index] = promise;
+          pending--;
+
+          if( !pending ) {
+              resolve(promisesResult);
+          }
 				}
 			});
 		});
