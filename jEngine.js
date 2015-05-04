@@ -1556,18 +1556,24 @@
 
   if ( typeof module !== 'undefined' ) {
     module.exports = factory();
-  } else if( root !== undefined ) {
+  } else if( root ) {
     if( root.define ) {
-      define('Events', factory );
+      root.define('Events', function () { return factory(); } );
     } else if( root.angular ) {
-      root.angular.module('jstools.events', []).factory('Events', factory);
+      root.angular.module('jstools.events', []).factory('Events', function () { return factory(true); });
     } else if( !root.Events ) {
       root.Events = factory();
     }
   }
 
-})(this, function () {
+})(this, function (ng) {
 	'use strict';
+
+  var method = ng ? {
+    on: '$$on', once: '$$once', off: '$$off', trigger: '$$triger'
+  } : {
+    on: 'on', once: 'once', off: 'off', trigger: 'trigger'
+  };
 
 	function _addListener (handlers, handler, context) {
         if( ! handler instanceof Function ) {
@@ -1609,17 +1615,17 @@
         var listeners = {};
         var listenersOnce = {};
 
-        target.$$on = function (eventName, handler, context) {
+        target[method.on] = function (eventName, handler, context) {
             listeners[eventName] = listeners[eventName] || [];
             _addListener(listeners[eventName], handler, context);
         };
 
-        target.$$once = function (eventName, handler, context) {
+        target[method.once] = function (eventName, handler, context) {
             listenersOnce[eventName] = listenersOnce[eventName] || [];
             _addListener(listenersOnce[eventName], handler, context);
         };
 
-        target.$$trigger = function (eventName, attrs, caller) {
+        target[method.trigger] = function (eventName, attrs, caller) {
             _triggerEvent(listeners[eventName], attrs, caller);
 
             var len = _triggerEvent(listenersOnce[eventName], attrs, caller);
@@ -1628,7 +1634,7 @@
             }
         };
 
-        target.$$off = function (eventName, handler) {
+        target[method.off] = function (eventName, handler) {
             if( handler === undefined ) {
                 _emptyListener(listeners[eventName]);
                 _emptyListener(listenersOnce[eventName]);
