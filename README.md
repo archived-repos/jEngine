@@ -32,11 +32,6 @@ Libraries included
 [![npm version](https://badge.fury.io/js/jq-plugin.svg)](http://badge.fury.io/js/jq-plugin)
 [![Build Status](https://travis-ci.org/jstools/jq-plugin.svg?branch=master)](https://travis-ci.org/jstools/jq-plugin)
 
-[compile](https://github.com/jstools/compile)
-
-[![npm version](https://badge.fury.io/js/jstools-compile.svg)](http://badge.fury.io/js/jstools-compile)
-[![Build Status](https://travis-ci.org/jstools/compile.svg?branch=master)](https://travis-ci.org/jstools/compile)
-
 [cookie](https://github.com/jstools/jstools-cookie)
 > cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
 > adapted to be used with jstools-core
@@ -64,3 +59,8 @@ Libraries included
 
 [![npm version](https://badge.fury.io/js/jstools-utils.svg)](http://badge.fury.io/js/jstools-utils)
 [![Build Status](https://travis-ci.org/jstools/utils.svg?branch=master)](https://travis-ci.org/jstools/utils)
+
+[compile](https://github.com/jstools/template)
+
+[![npm version](https://badge.fury.io/js/jstools-template.svg)](http://badge.fury.io/js/jstools-template)
+[![Build Status](https://travis-ci.org/jstools/template.svg?branch=master)](https://travis-ci.org/jstools/template)

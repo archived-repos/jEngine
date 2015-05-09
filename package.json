@@ -1,6 +1,6 @@
 {
     "name": "jengine",
-    "version": "0.1.27",
+    "version": "0.2.0",
     "description": "A Powerful javascript framework to build your website/application",
     "main": "jEngine.js",
     "scripts": {
@@ -31,7 +31,7 @@
         "jstools-http": "*",
         "jstools-promise": "*",
         "jstools-scope": "*",
-        "jstools-compile": "*",
+        "jstools-template": "*",
         "jstools-utils": "*"
     },
     "devDependencies": {
