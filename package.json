@@ -1,6 +1,6 @@
 {
     "name": "jengine",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "A Powerful javascript framework to build your website/application",
     "main": "jEngine.js",
     "scripts": {
@@ -25,14 +25,14 @@
     "dependencies": {
         "jqlite": "*",
         "jq-plugin": "*",
-        "jstools-fn": "*",
-        "jstools-cookie": "*",
-        "jstools-events": "*",
-        "jstools-http": "*",
-        "jstools-promise": "*",
-        "jstools-scope": "*",
-        "jstools-template": "*",
-        "jstools-utils": "*"
+        "jengine-fn": "*",
+        "jengine-cookie": "*",
+        "jengine-events": "*",
+        "jengine-http": "*",
+        "jengine-promise": "*",
+        "jengine-scope": "*",
+        "jengine-template": "*",
+        "jengine-utils": "*"
     },
     "devDependencies": {
         "grunt": "*",

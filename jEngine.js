@@ -2313,16 +2313,20 @@
  */
 
 
-(function (root, definition) {
+(function (root, factory) {
 	'use strict';
 
 	if ( typeof module !== 'undefined' ) {
-		module.exports = definition();
+		module.exports = factory();
 	} else {
 		if ( root.define ) {
-			define('Scope', definition );
+			define('Scope', factory );
+		} else if ( root.angular ) {
+				var Scope = factory();
+				angular.module('jstools.scope', [])
+					.factory('Scope', factory);
 		} else if( !root.Scope ) {
-			root.Scope = definition();
+			root.Scope = factory();
 		}
 	}
 
@@ -3090,8 +3094,12 @@
 	return _;
 
 });
-fn.globalize();
 
-if( !this._ ) {
-  this._ = this.$utils;
+if( !document.querySelector('[data-jengine-mode=sandbox]') ) {
+
+  fn.globalize();
+
+  if( !this._ ) {
+    this._ = this.$utils;
+  }
 }

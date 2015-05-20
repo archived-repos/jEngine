@@ -3,20 +3,6 @@
 var grunt = require('grunt'),
     path = require('path');
 
-// function jstool2Tmp (dependenceName, filepath) {
-//   if( filepath instanceof Array ) {
-//     for( var i = 0, len = filepath.length; i < len; i++ ) {
-//       jstool2Tmp(dependenceName, filepath[i]);
-//     }
-//   } else if( typeof filepath === 'string' ) {
-//     grunt.file.copy( path.join( process.cwd(), 'node_modules', dependenceName, filepath ),
-//         path.join( process.cwd(), '.tmp', dependenceName, filepath )
-//     {
-//       encoding: 'utf8'
-//     });
-//   }
-// }
-
 module.exports = function(grunt) {
 
   // Load grunt tasks automatically
@@ -122,7 +108,7 @@ module.exports = function(grunt) {
     });
 
     jEngineSrc += grunt.file.read('globalize.js');
-    
+
     console.log('expandedList', expandedList);
 
     grunt.file.write('jEngine.js', jEngineSrc);
