@@ -1,5 +1,7 @@
 jEngine [![wercker status](https://app.wercker.com/status/57b07bc9c517eb6e90931964845da012/s "wercker status")](https://app.wercker.com/project/bykey/57b07bc9c517eb6e90931964845da012)
 ==============
+
+[![Join the chat at https://gitter.im/jstools/jEngine](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/jstools/jEngine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Bower version](https://badge.fury.io/bo/jengine.svg)](http://badge.fury.io/bo/jengine)
 [![npm version](https://badge.fury.io/js/jengine.svg)](http://badge.fury.io/js/jengine)
 [![Build Status](https://travis-ci.org/jstools/jEngine.svg?branch=master)](https://travis-ci.org/jstools/jEngine)
