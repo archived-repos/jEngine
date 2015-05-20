@@ -5,7 +5,7 @@ module.exports = function(config) {
     plugins: [ 'karma-jasmine', 'karma-chrome-launcher', 'karma-firefox-launcher' ],
     files: [
     	'jEngine.js',
-     	'.tests/{,**/}jstools-fn/{,**/}*.js',
+     	'.tests/{,**/}jengine-fn/{,**/}*.js',
      	'.tests/{,**/}*.js'
     ],
     browsers: [ 'Chrome', 'Firefox' ],
