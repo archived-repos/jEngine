@@ -1,11 +1,13 @@
 {
     "name": "jengine",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "A Powerful javascript framework to build your website/application",
     "main": "jEngine.js",
     "scripts": {
         "test": "grunt test",
-        "posttest": "grunt uglify:min"
+        "posttest": "grunt uglify:min",
+        "prebuild": "npm install",
+        "build": "grunt build"
     },
     "repository": {
         "type": "git",

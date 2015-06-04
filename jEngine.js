@@ -34,12 +34,10 @@
     }
   } else {
     var jqlite = factory();
-    if ( typeof fn === 'function' ) {
-      fn.define('jqlite', function () { return jqlite; } );
+    if ( typeof define === 'function' ) {
+      define('jqlite', function () { return jqlite; } );
     } else if( typeof angular === 'function' ) {
       angular.module('jqlite', []).constant('jqlite', jqlite );
-    } else if ( typeof define === 'function' && define.amd ) {
-      define(['jqlite'], function () { return jqlite; });
     } else {
       root.jqlite = jqlite;
     }
@@ -50,6 +48,29 @@
 
 })(this, function () {
   'use strict';
+
+  function _isType (type) {
+      return function (o) {
+          return (typeof o === type);
+      };
+  }
+
+  function _instanceOf (_constructor) {
+      return function (o) {
+          return ( o instanceof _constructor );
+      };
+  }
+
+	var _isObject = _isType('object'),
+			_isFunction = _isType('function'),
+			_isString = _isType('string'),
+			_isNumber = _isType('number'),
+			_isArray = Array.isArray || _instanceOf(Array),
+			_isDate = _instanceOf(Date),
+			_isRegExp = _instanceOf(RegExp),
+			_isElement = function(o) {
+		    return o && o.nodeType === 1;
+		  };
 
   if( !Element.prototype.matchesSelector ) {
     Element.prototype.matchesSelector = (
@@ -161,15 +182,17 @@
 
   function initList(selector) {
 
-    if( selector instanceof Array || selector instanceof NodeList || selector instanceof HTMLCollection ) {
+    if( selector instanceof ListDOM ) {
+      return selector;
+    } else if( _isArray(selector) || selector instanceof NodeList || selector instanceof HTMLCollection ) {
       return pushMatches( new ListDOM(), selector );
-    } else if( selector === document || selector instanceof HTMLElement || selector instanceof Element ) {
+    } else if( selector === window || selector === document || selector instanceof HTMLElement || selector instanceof Element || _isElement(selector) ) {
       var list2 = new ListDOM();
       list2[0] = selector;
       list2.length = 1;
       return list2;
 
-    } else if( selector instanceof Function ) {
+    } else if( _isFunction(selector) ) {
       ready(selector);
     } else if( selector === undefined ) {
       return new ListDOM();
@@ -177,7 +200,7 @@
   }
 
   function jqlite (selector){
-    if( typeof selector === 'string' ) {
+    if( _isString(selector) ) {
       return stringMatches(selector);
     }
     return initList(selector);
@@ -194,7 +217,7 @@
   };
 
   function ready (callback) {
-    if( callback instanceof Function ) {
+    if( _isFunction(callback) ) {
       if (/loaded|complete/.test(document.readyState)) {
         callback();
       } else {
@@ -217,7 +240,7 @@
     };
 
   ListDOM.prototype.eq = function(pos) {
-      if( !pos instanceof Number ) {
+      if( !_isNumber(pos) ) {
         throw 'number required';
       }
       var item = ( pos < 0 ) ? this[this.length - pos] : this[pos], list = new ListDOM();
@@ -271,7 +294,7 @@
   ListDOM.prototype.$ = ListDOM.prototype.find;
 
   ListDOM.prototype.each = function(each) {
-      if( each instanceof Function ) {
+      if( _isFunction(each) ) {
         for( var i = 0, len = this.length, elem; i < len ; i++ ) {
             each.call(this[i], i, this[i]);
         }
@@ -294,14 +317,14 @@
   ListDOM.prototype.filter = function(selector) {
       var elems = new ListDOM(), elem, i, len;
 
-      if( selector instanceof Function ) {
+      if( _isFunction(selector) ) {
         for( i = 0, len = this.length, elem; i < len ; i++ ) {
           elem = this[i];
           if( selector.apply(elem,[elem]) ) {
             elems.push(elem);
           }
         }
-      } else if( typeof selector === 'string' ) {
+      } else if( _isString(selector) ) {
           for( i = 0, len = this.length, elem; i < len ; i++ ) {
             elem = this[i];
             if( Element.prototype.matchesSelector.call(elem,selector) ) {
@@ -471,7 +494,7 @@
         for( i = 0, len = this.length; i < len ; i++ ) {
           delete this[i].dataset[key];
         }
-      } else if( key instanceof Array ) {
+      } else if( _isArray(key) ) {
         for( i = 0, len = key.length; i < len ; i++ ) {
           this.removeData(key[i]);
         }
@@ -483,7 +506,7 @@
         for( i = 0, len = this.length; i < len ; i++ ) {
           this[i].removeAttribute('data-' + key);
         }
-      } else if( key instanceof Array ) {
+      } else if( _isArray(key) ) {
         for( i = 0, len = key.length; i < len ; i++ ) {
           this.removeData(key[i]);
         }
@@ -493,7 +516,7 @@
 
   ListDOM.prototype.attr = function (key, value) {
       var i, len;
-      if( value instanceof Function ) {
+      if( _isFunction(value) ) {
         for( i = 0, len = this.length; i < len ; i++ ) {
           this[i].setAttribute( key, value(i, this[i].getAttribute(key) ) );
         }
@@ -517,7 +540,7 @@
   ListDOM.prototype.prop = function (key, value) {
       var i, len;
 
-      if( value instanceof Function ) {
+      if( _isFunction(value) ) {
         for( i = 0, len = this.length; i < len ; i++ ) {
           this[i][key] = value( i, this[i][key] );
         }
@@ -562,9 +585,9 @@
 
   ListDOM.prototype.addClass = classListEnabled ? function (className) {
       if( className.indexOf(' ') >= 0 ) {
-        var jThis = $(this);
+        var _this = this;
         className.split(' ').forEach(function (cn) {
-          jThis.addClass(cn);
+          _this.addClass(cn);
         });
       } else {
         for( var i = 0, len = this.length; i < len ; i++ ) {
@@ -869,7 +892,7 @@
         }
         return this;
       } else {
-        if( html instanceof Function ) {
+        if( _isFunction(html) ) {
           for( i = 0, len = this.length; i < len; i++ ) {
             this[i].innerHTML = html(i, this[i].innerHTML);
           }
@@ -895,8 +918,8 @@
         for( i = 0, len = this.length; i < len; i++ ) {
           text += this[i].textContent;
         }
-        return this;
-      } else if( text instanceof Function ) {
+        return text;
+      } else if( _isFunction(text) ) {
         for( i = 0, len = this.length; i < len; i++ ) {
           this[i].textContent = text(i, this[i].textContent);
         }
@@ -913,18 +936,18 @@
     var i, len;
 
     if( typeof eventName === 'string' ) {
-      if( !(listener instanceof Function) ) {
+      if( !_isFunction(listener) ) {
         throw 'listener needs to be a function';
       }
 
       for( i = 0, len = this.length; i < len; i++ ) {
         attachElementListener(this[i], eventName, listener);
       }
-    } else if( eventName instanceof Array ) {
+    } else if( _isArray(eventName) ) {
       for( i = 0, len = eventName.length; i < len; i++ ) {
         this.on(eventName[i], listener);
       }
-    } else if( eventName instanceof Object ) {
+    } else if( _isObject(eventName) ) {
       for( i in eventName ) {
         this.on(i, eventName[i]);
       }
@@ -969,7 +992,7 @@
     var i, len;
 
     if( typeof eventName === 'string' ) {
-      if( !(listener instanceof Function) ) {
+      if( !_isFunction(listener) ) {
         throw 'listener needs to be a function';
       }
 
@@ -979,11 +1002,11 @@
         element = this[i];
         attachElementListener(element, eventName, autoDestroyListener(element, eventName, listener) );
       }
-    } else if( eventName instanceof Array ) {
+    } else if( _isArray(eventName) ) {
       for( i = 0, len = eventName.length; i < len; i++ ) {
         this.once(eventName[i], listener);
       }
-    } else if( eventName instanceof Object ) {
+    } else if( _isObject(eventName) ) {
       for( i in eventName ) {
         this.once(i, eventName[i]);
       }
@@ -995,7 +1018,7 @@
   ListDOM.prototype.one = ListDOM.prototype.once;
 
   ListDOM.prototype.off = function (eventName, listener) {
-    if( typeof eventName !== 'string' || !(listener instanceof Function) ) {
+    if( typeof eventName !== 'string' || !_isFunction(listener) ) {
       throw 'bad arguments';
     }
 
@@ -1142,11 +1165,13 @@
   var jqHtml = jq.fn.html;
 
   jq.fn.html = function (html) {
-    jqHtml.apply(this, arguments);
+    var result = jqHtml.apply(this, arguments);
 
     if(html) {
       jq.plugin.init(this);
     }
+
+    return result;
   };
 
 })(this);
@@ -1675,7 +1700,41 @@
 })(this, function () {
     'use strict';
 
-    function extend () {
+    function _typeOf (type) {
+      return function (o) {
+        return typeof o === type;
+      };
+    }
+
+    function _instanceOf (obj) {
+      return function (o) {
+        return o instanceof obj;
+      };
+    }
+
+    var _isObject = _typeOf('object'),
+        _isArray = _instanceOf(Array),
+        _isFunction = _instanceOf(Function),
+        _isString = _typeOf('string');
+
+    function _copy (obj) {
+      if( _isArray(obj) ) {
+        var list = [];
+        for( var i = 0, len = obj.length; i < len ; i++ ) {
+          list[i] = _copy(obj[i]);
+        }
+        return list;
+      } else if( _isObject(obj) ) {
+        var o = {};
+        for( var key in obj ) {
+          o[key] = _copy(obj[key]);
+        }
+        return o;
+      }
+      return obj;
+    }
+
+    function _extend () {
         var auxArray = [],
             dest = auxArray.shift.call(arguments),
             src = auxArray.shift.call(arguments),
@@ -1683,8 +1742,8 @@
 
         while( src ) {
             for( key in src ) {
-                if( dest[key] instanceof Object && src[key] instanceof Object ) {
-                    dest[key] = extend({}, src[key]);
+                if( _isObject(dest[key]) && _isObject(src[key]) ) {
+                    dest[key] = _copy(src[key]);
                 } else {
                     dest[key] = src[key];
                 }
@@ -1693,6 +1752,17 @@
         }
 
         return dest;
+    }
+
+    function _resolveFunctions (o) {
+      for( var key in o ) {
+        if( _isFunction(o[key]) ) {
+          o[key] = o[key]();
+        } else if( _isObject(o[key]) ) {
+          _resolveFunctions(o[key]);
+        }
+      }
+      return o;
     }
 
     function joinPath () {
@@ -1714,9 +1784,9 @@
             prefix = prefix || '';
             notFirst = notFirst || 0;
 
-            if( params instanceof Function ) {
+            if( _isFunction(params) ) {
                 return ( notFirst ? '&' : '' ) + encodeURIComponent(prefix) + '=' + encodeURIComponent( params() );
-            } else if( params instanceof Object ) {
+            } else if( _isObject(params) ) {
                 var paramsStr = '';
 
                 for( var key in params ) {
@@ -1755,11 +1825,11 @@
             step = queue.$finally.shift();
         }
 
-        if( step instanceof Function ) {
+        if( _isFunction(step) ) {
 
             step(data, request.status, request);
 
-        } else if( step instanceof Object ) {
+        } else if( _isObject(step) ) {
 
             if( resolved && step.resolve ) {
                 newData = step.resolve(data, request.status, request);
@@ -1835,9 +1905,9 @@
 
     function http (url, _options){
 
-        url = ( url instanceof Array ) ? joinPath.apply(null, url) : url;
+        url = _isArray(url) ? joinPath.apply(null, url) : url;
 
-        if( url instanceof Object ) {
+        if( _isObject(url) ) {
             _options = url;
             url = _options.url;
         }
@@ -1846,31 +1916,17 @@
             return new HttpUrl(url);
         }
 
-        var options = extend({}, http.defaults),
+        var options = _resolveFunctions( _extend(_copy(http.defaults), _options) ),
             key,
             catchCodes = {},
             handlersQueue = [];
-
-        for( key in _options ) {
-            if( _options[key] instanceof Function ) {
-                _options[key] = _options[key]();
-            }
-            if( options[key] instanceof Function ) {
-                options[key] = options[key]();
-            }
-            if( key !== 'data' && _options[key] instanceof Object ) {
-                extend(options[key], _options[key])
-            } else {
-                options[key] = _options[key];
-            }
-        }
 
         if( !url ) {
             throw 'url missing';
             return false;
         }
 
-        if( /^get$/.test(options.method) && options.data instanceof Object && Object.keys(options.data).length ) {
+        if( /^get$/.test(options.method) && _isObject(options.data) && Object.keys(options.data).length ) {
             console.log('options.data', options.data);
             url += '?' + serializeParams(options.data);
             options.data = null;
@@ -1888,30 +1944,30 @@
         request.open( options.method.toUpperCase(), url, (options.async === undefined) ? true : options.async );
 
         for( key in options.headers ) {
-            request.setRequestHeader( toTitleSlug(key), options.headers[key]);
+            request.setRequestHeader( toTitleSlug(key), options.headers[key] );
         }
 
-        request.onreadystatechange=function(){
+        request.onreadystatechange = function(){
             if( request.readyState === 'complete' || request.readyState === 4 ) {
                 processResponse(request, handlersQueue, catchCodes);
             }
-        }
+        };
 
-        if( options.data !== undefined && typeof options.data !== 'string' ) {
+        if( options.data !== undefined && !_isString(options.data) ) {
             options.data = JSON.stringify(options.data);
         }
 
         request.send( options.data );
 
         request.then = function (onFulfilled, onRejected) {
-            if( onFulfilled instanceof Function ) {
+            if( _isFunction(onFulfilled) ) {
                 handlersQueue.push({ resolve: onFulfilled, reject: onRejected });
             }
             return request;
         };
 
         request.catch = function (onRejected) {
-            if( onRejected instanceof Function ) {
+            if( _isFunction(onRejected) ) {
                 handlersQueue.push({ resolve: null, reject: onRejected });
             }
             return request;
@@ -1937,9 +1993,9 @@
     ['get', 'head', 'options', 'post', 'put', 'delete'].forEach(function (method) {
         http[method] = function (url, data, _options){
 
-            url = ( url instanceof Array ) ? joinPath.apply(null, url) : url;
+            url = ( _isArray(url) ) ? joinPath.apply(null, url) : url;
 
-            if( url instanceof Object ) {
+            if( _isObject(url) ) {
                 _options = url;
                 url = _options.url;
             }
@@ -1953,16 +2009,16 @@
 
     http.patch = function (url, data, options) {
 
-        url = ( url instanceof Array ) ? joinPath.apply(null, url) : url;
+        url = ( _isArray(url) ) ? joinPath.apply(null, url) : url;
 
-        if( url instanceof Object ) {
+        if( _isObject(url) ) {
             url.method = 'patch';
             return http(url);
-        } else if( typeof url === 'string' ) {
-            options = options instanceof Object ? options : {};
+        } else if( _isString(url) ) {
+            options = _isObject(options) ? options : {};
 
             if( data ) {
-                return http(url, extend(options, {
+                return http(url, _extend(options, {
                     method: 'patch',
                     data: data
                 }) );
@@ -2001,7 +2057,7 @@
 
                             data = data || patchOps;
 
-                            return http(url, extend(options, {
+                            return http(url, _extend(options, {
                                 method: 'patch',
                                 data: data
                             }) );
@@ -2110,8 +2166,8 @@
 			if( value !== undefined ) {
 				promise['[[PromiseValue]]'] = value;
 			}
-		} else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
-			throw new Error('unhandled promise');
+		// } else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
+		// 	throw new Error('unhandled promise');
 		} else {
 			step = promise.queue.finally.shift();
 
@@ -2148,10 +2204,10 @@
 
 				switch ( promise['[[PromiseStatus]]'] ) {
 					case 'fulfilled':
-						promise.resolve( ( newValue === undefined ) ? value : newValue );
+						promise.resolve( newValue === undefined ? value : newValue );
 						break;
 					case 'rejected':
-						promise.reject( ( newValue === undefined ) ? value : newValue );
+						promise.reject( newValue === undefined ? value : newValue );
 						break;
 				}
 			}
@@ -2209,9 +2265,21 @@
 		return processResult(this, 'fulfilled', value);
 	};
 
-	P.prototype.reject = function (value) {
-		return processResult(this, 'rejected', value);
+	P.prototype.reject = function (reason) {
+		return processResult(this, 'rejected', reason);
 	};
+
+  P.resolve = function (value) {
+    return P(function (resolve, reject) {
+      resolve(value);
+    });
+  };
+
+  P.reject = function (reason) {
+    return P(function (resolve, reject) {
+      reject(reason);
+    });
+  };
 
 	P.defer = function () {
 		var deferred = new P();
@@ -2220,14 +2288,13 @@
 	};
 
 	P.when = function (promise) {
-		var whenPromise = new P(function (resolve, reject) {
+		return P(function (resolve, reject) {
 			if( promise && promise.then ) {
 				promise.then(resolve, reject);
 			} else {
-				resolve(whenPromise, promise);
+				resolve(promise);
 			}
 		});
-		return whenPromise;
 	};
 
 	P.all = function (promisesList) {
