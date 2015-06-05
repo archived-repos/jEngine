@@ -160,24 +160,34 @@
     return list;
   }
 
+  var RE_TAG = /^[a-z-_]$/i;
+
   function stringMatches (selector) {
-    switch ( selector[0] ) {
-      case '#':
-        var found = document.querySelector(selector);
-        if( found ) {
-          var listdom = new ListDOM();
-          listdom[0] = found;
-          listdom.length = 1;
-          return listdom;
-        } else return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
-        break;
-      case '<':
-        auxDiv.innerHTML = selector;
-        var jChildren = pushMatches( new ListDOM(), auxDiv.children );
-        return jChildren;
-      default:
+    var char0 = selector[0];
+
+    if( char0 === '<') {
+      auxDiv.innerHTML = selector;
+      var jChildren = pushMatches( new ListDOM(), auxDiv.children );
+      return jChildren;
+    } else if ( selector.indexOf(' ') !== -1 || selector.indexOf(':') !== -1 ) {
+      return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+    } else if( char0 === '#' ) {
+      var found = document.getElementById(selector.substr(1));
+      if( found ) {
+        var listdom = new ListDOM();
+        listdom[0] = found;
+        listdom.length = 1;
+        return listdom;
+      } else {
         return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+      }
+    } else if( char0 === '.' ) {
+      return pushMatches( new ListDOM(), document.getElementsByClassName(selector.substr(1)) );
+    } else if( RE_TAG.test(selector) ) {
+      console.log(document.getElementsByTagName(selector), document.getElementsByTagName(selector).length);
+      return pushMatches( new ListDOM(), document.getElementsByTagName(selector) );
     }
+    return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
   }
 
   function initList(selector) {
@@ -2073,7 +2083,7 @@
     return http;
 });
 /*
- * css.js
+ * promise.js
  *
  * The MIT License (MIT)
  *
@@ -2166,8 +2176,8 @@
 			if( value !== undefined ) {
 				promise['[[PromiseValue]]'] = value;
 			}
-		// } else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
-		// 	throw new Error('unhandled promise');
+		} else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
+			throw new Error('unhandled promise');
 		} else {
 			step = promise.queue.finally.shift();
 
@@ -2194,10 +2204,8 @@
 
 				newValue.then(function (result) {
 					promise.resolve( result );
-					return result;
 				}, function (reason) {
 					promise.reject( reason );
-					throw reason;
 				});
 
 			} else {
@@ -2407,6 +2415,10 @@
     }
 
     var Scope = function (data) {
+				if(!this) {
+					return new Scope(data);
+				}
+
         if( data instanceof Object ) {
             this.$$extend(data);
         }
@@ -2867,7 +2879,7 @@
 })(this, function () {
 	'use strict';
 
-	function _isType (type) {
+		function _isType (type) {
         return function (o) {
             return (typeof o === type);
         };
@@ -2879,8 +2891,19 @@
         };
     }
 
+		var _isObject = _isType('object'),
+				_isFunction = _isType('function'),
+				_isString = _isType('string'),
+				_isNumber = _isType('number'),
+				_isArray = Array.isArray || _instanceOf(Array),
+				_isDate = _instanceOf(Date),
+				_isRegExp = _instanceOf(RegExp),
+				_isElement = function(o) {
+			    return o && obj.nodeType === 1;
+			  };
+
     function _key (o, fullKey, value){
-        if(! o instanceof Object) return false;
+        if( !_isObject(o) ) return false;
         var oKey, keys = fullKey.split('.');
         if(value !== undefined) {
             if(keys.length) {
@@ -2917,18 +2940,18 @@
             while( src ) {
 
                 if( typeof dest !== typeof src ) {
-                    dest = ( src instanceof Array ) ? [] : ( src instanceof Object ? {} : src );
+                    dest = _isArray(src) ? [] : ( _isObject(src) ? {} : src );
                 }
 
-                if( src instanceof Object ) {
+                if( _isObject(src) ) {
 
                     for( key in src ) {
                         if( src[key] !== undefined ) {
                             if( typeof dest[key] !== typeof src[key] ) {
                                 dest[key] = _merge(undefined, src[key]);
-                            } else if( dest[key] instanceof Array ) {
+                            } else if( _isArray(dest[key]) ) {
                                 [].push.apply(dest[key], src[key]);
-                            } else if( dest[key] instanceof Object ) {
+                            } else if( _isObject(dest[key]) ) {
                                 dest[key] = _merge(dest[key], src[key]);
                             } else {
                                 dest[key] = src[key];
@@ -2970,7 +2993,7 @@
         var path = (arguments[0] || '').replace(/\/$/, '');
 
         for( var i = 1, len = arguments.length - 1 ; i < len ; i++ ) {
-            path += '/' + arguments[len].replace(/^\/|\/$/, '');
+            path += '/' + arguments[i].replace(/^\/|\/$/, '');
         }
         if( len ) {
             path += arguments[len] ? ( '/' + arguments[len].replace(/^\//, '') ) : '';
@@ -2991,7 +3014,7 @@
 
     function _addToPipe (pipe, args) {
         for( var i = 0, len = args.length; i < len; i++ ) {
-            if( !args[i] instanceof Function ) {
+            if( !_isFunction(args[i]) ) {
                 throw 'only Functions are allowed as pipe arguments';
             } else {
                 pipe.push(args[i]);
@@ -3012,16 +3035,16 @@
     }
 
     function each (o, iteratee, thisArg) {
-        if( o instanceof Array ) {
+        if( _isArray(o) ) {
             _eachInList(o, iteratee, thisArg);
-        } else if( o instanceof Object ) {
+        } else if( _isObject(o) ) {
             _eachInObject(o, iteratee, thisArg);
         }
     }
 
     function indexOf (list, comparator) {
 
-        if( comparator instanceof Function ) {
+        if( _isFunction(comparator) ) {
             for( var i = 0, len = list.length; i < len; i++ ) {
                 if( comparator(list[i]) ) {
                     return i;
@@ -3036,7 +3059,7 @@
 
         var i, len;
 
-        if( comparator instanceof Function ) {
+        if( _isFunction(comparator) ) {
             for( i = 0, len = list.length; i < len; i++ ) {
                 if( comparator(list[i]) ) {
                     list.splice(i, 1);
@@ -3094,13 +3117,17 @@
     }
 
     var _Funcs = {
-				isFunction: _isType('function'),
-        isString: _isType('string'),
-        isNumber: _isType('number'),
-        isArray: _instanceOf(Array),
-        isDate: _instanceOf(Date),
-        isRegExp: _instanceOf(RegExp),
-				isObject: function (myVar,type){ if( myVar instanceof Object ) return ( type === 'any' ) ? true : ( typeof myVar === (type || 'object') ); else return false; },
+
+			// Type Functions
+				isType: _isType,
+				isObject: _isObject,
+				isFunction: _isFunction,
+				isString: _isString,
+				isNumber: _isNumber,
+				isArray: _isArray,
+				isDate: _isDate,
+				isRegExp: _isRegExp,
+				isElement: _isElement,
 
 				key: _key,
     		keys: Object.keys,
@@ -3139,7 +3166,7 @@
         chain: function (value) {
             return new Chain(value);
         }
-	};
+		};
 
     function Chain (value) {
         this.value = value;
