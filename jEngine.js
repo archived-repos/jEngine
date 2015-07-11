@@ -262,6 +262,26 @@
       return list;
     };
 
+  ListDOM.prototype.first = function() {
+      var list = new ListDOM();
+
+      if( this.length ) {
+        list[0] = this[0];
+        list.length = 1;
+      }
+      return list;
+    };
+
+  ListDOM.prototype.last = function() {
+      var list = new ListDOM();
+
+      if( this.length ) {
+        list[0] = this[this.length - 1];
+        list.length = 1;
+      }
+      return list;
+    };
+
   ListDOM.prototype.find = function(selector) {
       var list = this, elems = new ListDOM(), found, i, len;
 
@@ -638,7 +658,7 @@
 
   ListDOM.prototype.hasClass = classListEnabled ? function (className) {
       for( var i = 0, len = this.length; i < len ; i++ ) {
-          if( this[i].classList.item(className) ) {
+          if( this[i].classList.contains(className) ) {
               return true;
           }
       }
@@ -880,6 +900,10 @@
           this[i].style[key] = value;
         }
         return this;
+      } else if( key instanceof Object ) {
+        for( var k in key ) {
+          this.css(k, key[k]);
+        }
       } else if( this[0] ) {
         return this[0].style[key] || window.getComputedStyle(this[0])[key];
       }
@@ -1826,50 +1850,62 @@
         });
     }
 
-    function processQueue (request, queue, data, resolved) {
-        var step = queue.shift(),
-            newData = undefined;
+    function getStep( queue, fulfilled ) {
+      var step = queue.shift(), method = fulfilled ? 'onFulfill' : 'onReject';
 
-
-        if( !step ) {
-            step = queue.$finally.shift();
+      while( step ) {
+        if( step[method] ) {
+          return step[method];
         }
+        step = queue.shift();
+      }
 
-        if( _isFunction(step) ) {
+      return;
+    }
 
-            step(data, request.status, request);
+    function processQueue (queue, data, fulfilled) {
+        // console.log('processQueue', request, queue, data, fulfilled);
 
-        } else if( _isObject(step) ) {
-
-            if( resolved && step.resolve ) {
-                newData = step.resolve(data, request.status, request);
-            }
-
-            if( !resolved && step.reject ) {
-                newData = step.reject(data, request.status, request);
-            }
-
-            if( newData && newData.then ) {
-                queue.forEach(function (step) {
-                    newData.then(step.resolve, step.reject);
-                });
-
-                if( newData.finally ) {
-                    queue.$finally.forEach(function (step) {
-                        newData.finally(step.resolve, step.reject);
-                    });
-                } else if( queue.$finally.length ) {
-                    throw 'received promise not implements finally';
-                }
-
-                step = false;
-            }
-
-        }
+        var step = getStep( queue, fulfilled ),
+            newData;
 
         if( step ) {
-            processQueue(request, queue, (newData === undefined) ? data : newData, resolved);
+
+          try {
+            newData = step(data);
+            fulfilled = true;
+          } catch (reason) {
+            newData = reason;
+            fulfilled = false;
+          }
+
+          if( newData && newData.then ) {
+            newData.then(function (result) {
+              processQueue(request, queue, result, true);
+            }, function (reason) {
+              processQueue(request, queue, reason, false);
+            });
+          } else {
+            processQueue(queue, (newData === undefined) ? data : newData, fulfilled);
+          }
+
+        } else {
+            step = queue.$finally.shift();
+
+            while ( step instanceof Function ) {
+              step(data);
+              step = queue.$finally.shift();
+            }
+            return;
         }
+    }
+
+    function requestResponse (request, data) {
+      return {
+        data: data,
+        status: request.status,
+        request: request
+      };
     }
 
     function processResponse (request, handlersQueue, catchCodes) {
@@ -1887,15 +1923,14 @@
 
         if( catchCodes[request.status] ) {
             catchCodes[request.status].apply(request, [ data, function (data) {
-                processQueue(request, handlersQueue, data, true);
+                processQueue(handlersQueue, requestResponse(request, data), true);
             }, function (reason) {
-                processQueue(request, handlersQueue, reason, true);
+                processQueue(handlersQueue, requestResponse(request, reason), true);
             } ]);
         } else if( request.status >= 200 && request.status < 300 ) {
-            request.$resolved = true;
-            processQueue(request, handlersQueue, data, true);
+            processQueue(handlersQueue, requestResponse(request, data), true);
         } else {
-            processQueue(request, handlersQueue, data, false);
+            processQueue(handlersQueue, requestResponse(request, data), false);
         }
     }
 
@@ -1971,14 +2006,14 @@
 
         request.then = function (onFulfilled, onRejected) {
             if( _isFunction(onFulfilled) ) {
-                handlersQueue.push({ resolve: onFulfilled, reject: onRejected });
+                handlersQueue.push({ onFulfill: onFulfilled, onReject: onRejected });
             }
             return request;
         };
 
         request.catch = function (onRejected) {
             if( _isFunction(onRejected) ) {
-                handlersQueue.push({ resolve: null, reject: onRejected });
+                handlersQueue.push({ onFulfill: null, onReject: onRejected });
             }
             return request;
         };
@@ -2966,22 +3001,18 @@
         }
 
         function _extend () {
-            var dest = arrayShift.call(arguments),
-                src = arrayShift.call(arguments),
-                key;
+          var dest = arrayShift.call(arguments),
+              src = arrayShift.call(arguments),
+              key;
 
-            while( src ) {
-                for( key in src) {
-                    if( typeof dest[key] !== typeof src[key] ) {
-                        dest[key] = src[key];
-                    } else {
-                        dest[key] = src[key];
-                    }
-                }
-                src = arrayShift.call(arguments);
+          while( src ) {
+            for( key in src) {
+              dest[key] = src[key];
             }
+            src = arrayShift.call(arguments);
+          }
 
-            return dest;
+          return dest;
         }
 
         function _copy (o) {
