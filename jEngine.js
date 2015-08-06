@@ -162,7 +162,7 @@
 
   var RE_TAG = /^[a-z-_]$/i;
 
-  function stringMatches (selector) {
+  function stringMatches (selector, element) {
     var char0 = selector[0];
 
     if( char0 === '<') {
@@ -170,24 +170,24 @@
       var jChildren = pushMatches( new ListDOM(), auxDiv.children );
       return jChildren;
     } else if ( selector.indexOf(' ') !== -1 || selector.indexOf(':') !== -1 ) {
-      return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+      return pushMatches( new ListDOM(), element.querySelectorAll(selector) );
     } else if( char0 === '#' ) {
-      var found = document.getElementById(selector.substr(1));
+      var found = element.getElementById(selector.substr(1));
       if( found ) {
         var listdom = new ListDOM();
         listdom[0] = found;
         listdom.length = 1;
         return listdom;
       } else {
-        return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+        return pushMatches( new ListDOM(), element.querySelectorAll(selector) );
       }
     } else if( char0 === '.' ) {
-      return pushMatches( new ListDOM(), document.getElementsByClassName(selector.substr(1)) );
+      return pushMatches( new ListDOM(), element.getElementsByClassName(selector.substr(1)) );
     } else if( RE_TAG.test(selector) ) {
-      console.log(document.getElementsByTagName(selector), document.getElementsByTagName(selector).length);
-      return pushMatches( new ListDOM(), document.getElementsByTagName(selector) );
+      // console.log(document.getElementsByTagName(selector), element.getElementsByTagName(selector).length);
+      return pushMatches( new ListDOM(), element.getElementsByTagName(selector) );
     }
-    return pushMatches( new ListDOM(), document.querySelectorAll(selector) );
+    return pushMatches( new ListDOM(), element.querySelectorAll(selector) );
   }
 
   function initList(selector) {
@@ -209,9 +209,9 @@
     }
   }
 
-  function jqlite (selector){
+  function jqlite (selector, element){
     if( _isString(selector) ) {
-      return stringMatches(selector);
+      return stringMatches(selector, element || document );
     }
     return initList(selector);
   }
@@ -323,10 +323,36 @@
     };
   ListDOM.prototype.$ = ListDOM.prototype.find;
 
+  ListDOM.prototype.add = function (selector, element) {
+    var el2add = jqlite(selector, element), i, j, len,
+        list = new ListDOM(), listLength = this.length;
+
+    for( i = 0, len = this.length; i < len ; i++ ) {
+      list[i] = this[i];
+      list[i].___found___ = true;
+    }
+
+    for( i = 0, len = el2add.length; i < len ; i++ ) {
+      if( !el2add[i].___found___ ) {
+        list[listLength] = el2add[i];
+        listLength++;
+      }
+    }
+
+    list.length = listLength;
+
+    for( i = 0, len = this.length; i < len ; i++ ) {
+      delete list[i].___found___;
+    }
+
+    return list;
+
+  };
+
   ListDOM.prototype.each = function(each) {
       if( _isFunction(each) ) {
         for( var i = 0, len = this.length, elem; i < len ; i++ ) {
-            each.call(this[i], i, this[i]);
+          each.call(this[i], i, this[i]);
         }
       }
       return this;
@@ -737,6 +763,10 @@
       return this;
     };
 
+  ListDOM.prototype.appendTo = function (target) {
+      $(target).append(this);
+    };
+
   ListDOM.prototype.prepend = function (content) {
       var jContent = $(content), jContent2, i, j, len, len2, element, previous;
 
@@ -895,7 +925,8 @@
 
   ListDOM.prototype.css = function (key, value) {
 
-      if( value ) {
+      if( value !== undefined ) {
+        value = ( value instanceof Function ) ? value() : ( value instanceof Number ? (value + 'px') : value );
         for( var i = 0, len = this.length; i < len; i++ ) {
           this[i].style[key] = value;
         }
@@ -908,8 +939,87 @@
         return this[0].style[key] || window.getComputedStyle(this[0])[key];
       }
 
-      return '';
+      return this;
     };
+
+  ListDOM.prototype.position = function () {
+    if( this.length ) {
+      return {
+        top: this[0].offsetTop,
+        left: this[0].offsetLeft
+      };
+    }
+  };
+
+  ListDOM.prototype.offset = function (coordinates) {
+    if( coordinates === undefined ) {
+      var rect = this[0].getBoundingClientRect();
+      return this.length && { top: rect.top + document.body.scrollTop, left: rect.left };
+    }
+    if( coordinates instanceof Function ) {
+      coordinates = coordinates();
+    }
+    if( typeof coordinates === 'object' ) {
+      if( coordinates.top !== undefined && coordinates.left !== undefined ) {
+        for( var i = 0, len = this.length, position ; i < len ; i++ ) {
+          // position = this[i].style.position || window.getComputedStyle(this[i]).position;
+          this[i].style.position = 'relative';
+
+          var p = this[i].getBoundingClientRect();
+
+          this[i].style.top = coordinates.top - p.top + parseFloat(this[i].style.top || 0) - document.body.scrollTop + 'px';
+          this[i].style.left = coordinates.left - p.left + parseFloat(this[i].style.left || 0) + 'px';
+        }
+        return coordinates;
+      }
+    }
+  };
+
+  ListDOM.prototype.width = function (value, offset) {
+    var el;
+    if( value === true ) {
+      if( this.length ) {
+        el = this[0];
+        return el.offsetWidth;
+      }
+    } else if( value !== undefined ) {
+
+      for( var i = 0, len = this.length; i< len ; i++ ) {
+        this[i].style.width = value;
+      }
+
+    } else if( this.length ) {
+      el = this[0];
+      return el.offsetWidth -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('border-left-width') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('padding-left') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('padding-right') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('border-right-width') );
+    }
+  };
+
+  ListDOM.prototype.height = function (value, offset) {
+    var el;
+    if( value === true ) {
+      if( this.length ) {
+        el = this[0];
+        return el.offsetHeight;
+      }
+    } else if( value !== undefined ) {
+
+      for( var i = 0, len = this.length; i < len ; i++ ) {
+        this[i].style.height = value;
+      }
+
+    } else if( this.length ) {
+      el = this[0];
+      return el.offsetHeight -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('border-top-width') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('padding-top') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('padding-bottom') ) -
+        parseFloat( window.getComputedStyle(el, null).getPropertyValue('border-bottom-width') );
+    }
+  };
 
   ListDOM.prototype.html = function (html) {
       var i, len;
@@ -1079,6 +1189,19 @@
         e.stopPropagation();
       });
     }
+  };
+
+  // shorthands
+
+  ['mouseenter', 'mouseleave'].forEach(function (eventName) {
+    ListDOM.prototype[eventName] = function (handler) {
+      this.on(eventName, handler);
+      return this;
+    };
+  });
+
+  ListDOM.prototype.hover = function (mouseIn, mouseOut) {
+    return this.mouseenter(mouseIn).mouseleave(mouseOut);
   };
 
   // finally
