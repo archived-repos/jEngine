@@ -1,6 +1,6 @@
 {
   "name": "jengine",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "A Powerful javascript framework to build your website/application",
   "main": "jEngine.js",
   "scripts": {
@@ -34,7 +34,7 @@
     "jengine-template": "^0.1.2",
     "jengine-utils": "0.0.26",
     "jq-plugin": "^0.1.0",
-    "jqlite": "^0.2.8"
+    "jqlite": "^0.2.10"
   },
   "devDependencies": {
     "grunt": "*",
