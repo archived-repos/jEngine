@@ -1,6 +1,6 @@
 {
   "name": "jengine",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "A Powerful javascript framework to build your website/application",
   "main": "jEngine.js",
   "scripts": {
@@ -25,16 +25,16 @@
   },
   "homepage": "https://github.com/jstools/jEngine",
   "dependencies": {
+    "jengine-fn": "^0.1.60",
+    "jqlite": "^0.2.10",
+    "jq-plugin": "^0.1.0",
     "jengine-cookie": "^0.1.0",
     "jengine-events": "^0.1.3",
-    "jengine-fn": "^0.1.60",
     "jengine-http": "0.0.30",
     "jengine-promise": "^0.1.3",
     "jengine-scope": "0.0.11",
     "jengine-template": "^0.1.2",
-    "jengine-utils": "0.0.26",
-    "jq-plugin": "^0.1.0",
-    "jqlite": "^0.2.10"
+    "jengine-utils": "0.0.26"
   },
   "devDependencies": {
     "grunt": "*",
