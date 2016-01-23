@@ -30,13 +30,13 @@ require('nitro')(function (nitro) {
 
   var fnWrapper = nitro.template(file.read('node_modules/fn-sandbox/lib/global-wrapper.js'));
 
-  $q.when( fnWrapper({ src: file.read('node_modules/fn-sandbox/lib/fn.js') }) )
-
-    .then(function (src) {
-      return src +
-             file.read(`node_modules/jqlite/jqlite.js`) +
-             file.read(`node_modules/jq-plugin/jq-plugin.js`);
-    })
+  $q.when(
+    fnWrapper({ src: file.read('node_modules/fn-sandbox/lib/fn.js') }) +
+      file.read(`node_modules/jqlite/jqlite.js`) +
+      file.read(`node_modules/jq-plugin/jq-plugin.js`) +
+      file.read(`node_modules/jengine-cookie/cookie.js`) +
+      file.read(`node_modules/events-wrapper/events.js`)
+    )
 
     .then(function (src) {
       return browserify([

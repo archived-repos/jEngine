@@ -17,10 +17,10 @@ jEngine [![wercker status](https://app.wercker.com/status/57b07bc9c517eb6e909319
 
 Libraries included
 ------------------
-[fn](https://github.com/jstools/fn)
+[fn-sandbox](https://github.com/jstools/fn-sandbox)
 
-[![npm version](https://badge.fury.io/js/jengine-fn.svg)](http://badge.fury.io/js/jengine-fn)
-[![Build Status](https://travis-ci.org/jstools/fn.svg?branch=master)](https://travis-ci.org/jstools/fn)
+[![npm version](https://badge.fury.io/js/jengine-fn.svg)](http://badge.fury.io/js/fn-sandbox)
+[![Build Status](https://travis-ci.org/jstools/fn-sandbox.svg?branch=master)](https://travis-ci.org/jstools/fn-sandbox)
 
 [jqlite](https://github.com/jstools/jqlite)
 
@@ -43,24 +43,9 @@ Libraries included
 
 [http](https://github.com/jstools/http)
 
-[![npm version](https://badge.fury.io/js/jengine-http.svg)](http://badge.fury.io/js/jengine-http)
+[![npm version](https://badge.fury.io/js/jstools-http.svg)](http://badge.fury.io/js/jstools-http)
 
 [promise](https://github.com/jstools/promise)
 
-[![npm version](https://badge.fury.io/js/jengine-promise.svg)](http://badge.fury.io/js/jengine-promise)
-[![Build Status](https://travis-ci.org/jstools/promise.svg?branch=master)](https://travis-ci.org/jstools/promise)
-
-[scope](https://github.com/jstools/scope)
-
-[![npm version](https://badge.fury.io/js/jengine-scope.svg)](http://badge.fury.io/js/jengine-scope)
-[![Build Status](https://travis-ci.org/jstools/scope.svg?branch=master)](https://travis-ci.org/jstools/scope)
-
-[utils](https://github.com/jstools/utils)
-
-[![npm version](https://badge.fury.io/js/jengine-utils.svg)](http://badge.fury.io/js/jengine-utils)
-[![Build Status](https://travis-ci.org/jstools/utils.svg?branch=master)](https://travis-ci.org/jstools/utils)
-
-[compile](https://github.com/jstools/template)
-
-[![npm version](https://badge.fury.io/js/jengine-template.svg)](http://badge.fury.io/js/jengine-template)
-[![Build Status](https://travis-ci.org/jstools/template.svg?branch=master)](https://travis-ci.org/jstools/template)
+[![npm version](https://badge.fury.io/js/q-promise.svg)](http://badge.fury.io/js/q-promise)
+[![Build Status](https://travis-ci.org/jstools/q-promise.svg?branch=master)](https://travis-ci.org/jstools/q-promise)

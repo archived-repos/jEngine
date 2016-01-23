@@ -2000,6 +2000,217 @@ var arrayShift = Array.prototype.shift;
   };
 
 })(this);
+
+// cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
+// adapted to be used with jstools-core
+
+(function (root, factory) {
+
+  if ( typeof module !== 'undefined' ) {
+    module.exports = factory();
+  } else {
+    if ( root.define ) {
+        define('$cookie', factory);
+    } else if ( root.angular ) {
+        var $cookie = factory();
+        angular.module('jstools.cookie', [])
+          .provider('$cookie', function () {
+
+            this.config = function (configFn) {
+              configFn.call(null, $cookie);
+            };
+
+            this.$get = function () {
+              return $cookie;
+            };
+          });
+    } else if( !root.$cookie ) {
+      root.$cookie = factory();
+    }
+  }
+
+})(this, function(){
+    'use strict';
+
+    function cookie (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
+        if( sValue ) {
+            cookie.set(sKey, sValue, vEnd, sPath, sDomain, bSecure);
+        } else {
+            return cookie.get(sKey);
+        }
+    }
+
+    cookie.get = function (sKey) {
+        if (!sKey) { return null; }
+        return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
+    };
+
+    cookie.set = function (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
+        if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
+        var sExpires = "";
+        if (vEnd) {
+            switch (vEnd.constructor) {
+                case Number:
+                    sExpires = vEnd === Infinity ? "; expires=Fri, 31 Dec 9999 23:59:59 GMT" : "; max-age=" + vEnd;
+                break;
+                case String:
+                    sExpires = "; expires=" + vEnd;
+                break;
+                case Date:
+                    sExpires = "; expires=" + vEnd.toUTCString();
+                break;
+            }
+        }
+        document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
+        return true;
+    };
+
+    cookie.remove = function (sKey, sPath, sDomain) {
+        if (!cookie.hasKey(sKey)) { return false; }
+        document.cookie = encodeURIComponent(sKey) + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT" + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "");
+        return true;
+    };
+
+    cookie.hasKey = function (sKey) {
+        if (!sKey) { return false; }
+        return (new RegExp("(?:^|;\\s*)" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=")).test(document.cookie);
+    };
+
+    cookie.keys = function () {
+        var aKeys = document.cookie.replace(/((?:^|\s*;)[^\=]+)(?=;|$)|^\s*|\s*(?:\=[^;]*)?(?:\1|$)/g, "").split(/\s*(?:\=[^;]*)?;\s*/);
+        for (var nLen = aKeys.length, nIdx = 0; nIdx < nLen; nIdx++) { aKeys[nIdx] = decodeURIComponent(aKeys[nIdx]); }
+        return aKeys;
+    }
+
+    return cookie;
+});
+/*
+ * events.js - Single library to handle generic events
+
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ */
+
+(function (root, factory) {
+
+  if ( typeof module !== 'undefined' ) {
+    module.exports = factory();
+  } else if( root ) {
+    if( root.define ) {
+      root.define('Events', function () { return factory(); } );
+    } else if( root.angular ) {
+      root.angular.module('eventsWrapper', []).factory('Events', function () { return factory(true); });
+    } else if( !root.Events ) {
+      root.Events = factory();
+    }
+  }
+
+})(this, function (ng) {
+	'use strict';
+
+  var methods = {
+    std: { on: 'on', once: 'once', off: 'off', trigger: 'trigger' },
+    safe: { on: '$$on', once: '$$once', off: '$$off', trigger: '$$trigger' }
+  };
+
+  function getMethods (ngSafe) {
+    return ngSafe ? methods.safe : methods.std;
+  }
+
+	function _addListener (handlers, handler, context) {
+        if( ! handler instanceof Function ) {
+            return false;
+        }
+        handlers.push({ handler: handler, context: context });
+    }
+
+    function _triggerEvent (handlers, attrs, caller) {
+        if( handlers ) {
+            for( var i = 0, len = handlers.length; i < len; i++ ) {
+                handlers[i].handler.apply(caller, attrs);
+            }
+            return len;
+        }
+    }
+
+    function _emptyListener (handlers) {
+        if( handlers ) {
+            handlers.splice(0, handlers.length);
+        }
+    }
+
+    function _removeListener (handlers, handler) {
+        if( handlers ) {
+            for( var i = 0, len = handlers.length; i < len; ) {
+                if( handlers[i].handler === handler ) {
+                    handlers.splice(i, 1);
+                    len--;
+                } else {
+                    i++;
+                }
+            }
+        }
+    }
+
+    function Events (target, ngSafe) {
+        target = target || this;
+
+        var listeners = {},
+            listenersOnce = {},
+            method = getMethods(ngSafe);
+
+        target[method.on] = function (eventName, handler, context) {
+            listeners[eventName] = listeners[eventName] || [];
+            _addListener(listeners[eventName], handler, context);
+        };
+
+        target[method.once] = function (eventName, handler, context) {
+            listenersOnce[eventName] = listenersOnce[eventName] || [];
+            _addListener(listenersOnce[eventName], handler, context);
+        };
+
+        target[method.trigger] = function (eventName, attrs, caller) {
+            _triggerEvent(listeners[eventName], attrs, caller);
+
+            var len = _triggerEvent(listenersOnce[eventName], attrs, caller);
+            if( len ) {
+                listenersOnce[eventName].splice(0, len);
+            }
+        };
+
+        target[method.off] = function (eventName, handler) {
+            if( handler === undefined ) {
+                _emptyListener(listeners[eventName]);
+                _emptyListener(listenersOnce[eventName]);
+            } else {
+                _removeListener(listeners[eventName], handler);
+                _removeListener(listenersOnce[eventName], handler);
+            }
+        };
+    }
+
+    return Events;
+});
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 var arrayShift = [].shift;
