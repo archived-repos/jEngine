@@ -1,4 +1,7 @@
+(function (root) {
 
+	var fn = (function (module) {
+		
 /*	Copyright (c) 2014, Jesús Manuel Germade Castiñeiras <jesus@germade.es>
  *
  *	Permission to use, copy, modify, and/or distribute this software for any purpose
@@ -13,282 +16,292 @@
  *	ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-(function () {
-	'use strict';
+'use strict';
 
-	var _global = (typeof window === 'undefined' ? module.exports : window);
+// var _global = (typeof window === 'undefined' ? module.exports : window);
 
-	function _instanceof (prototype) {
-    	return function (o) {
-    		return o instanceof prototype;
-    	};
-    }
+function _instanceof (prototype) {
+  	return function (o) {
+  		return o instanceof prototype;
+  	};
+  }
 
-    function isString (o) {
-    	return typeof o === 'string';
-    }
-    var isFunction = _instanceof(Function),
-    	isArray = _instanceof(Array),
-    	isObject = _instanceof(Object);
+  function isString (o) {
+  	return typeof o === 'string';
+  }
+  var isFunction = _instanceof(Function),
+  	isArray = _instanceof(Array),
+  	isObject = _instanceof(Object);
 
-	function globalize (varName, o) {
-		if( o ) {
-			_global[varName] = o;
-		} else if(varName) {
-			_global[varName] = definitions[varName];
+// function globalize (varName, o) {
+// 	if( o ) {
+// 		_global[varName] = o;
+// 	} else if(varName) {
+// 		_global[varName] = definitions[varName];
+// 	} else {
+// 		for( varName in definitions ) {
+// 			_global[varName] = definitions[varName];
+// 		}
+// 	}
+// }
+
+var definitions = {},
+	RE_FN_ARGS = /^function[^\(]\(([^\)]*)/,
+	noop = function () {},
+	fnListeners = {};
+
+/**
+ * @description
+ * fn function
+ *
+ * @param {fnName} function name
+ * @param {dependencies} array of dependencies ended by function defition
+ * @returns {Object} the Core
+ */
+function fn (deps, func, context) {
+	if( isString(deps) ) {
+		if( func === undefined ) {
+			return definitions[deps];
 		} else {
-			for( varName in definitions ) {
-				_global[varName] = definitions[varName];
-			}
+			return fn.define(deps, func, context);
+		}
+	} else {
+		fn.run(deps, func, context);
+	}
+	return fn;
+}
+
+function onceFn (fnName, handler) {
+	fnListeners[fnName] = fnListeners[fnName] || [];
+	fnListeners[fnName].push(handler);
+}
+
+function triggerFn (fnName) {
+	var definition = definitions[fnName];
+	if( isArray(fnListeners[fnName]) ) {
+		for( var i = 0, len = fnListeners[fnName].length; i < len; i++ ) {
+			fnListeners[fnName][i](definition);
 		}
 	}
+}
 
-	var definitions = {},
-		RE_FN_ARGS = /^function[^\(]\(([^\)]*)/,
-		noop = function () {},
-		fnListeners = {};
+fn.waiting = {};
 
-	/**
-	 * @description
-	 * fn function
-	 *
-	 * @param {fnName} function name
-	 * @param {dependencies} array of dependencies ended by function defition
-	 * @returns {Object} the Core
-	 */
-	function fn (deps, func, context) {
-		if( isString(deps) ) {
-			if( func === undefined ) {
-				return definitions[deps];
-			} else {
-				return fn.define(deps, func, context);
-			}
-		} else {
-			fn.run(deps, func, context);
+fn.run = function (dependencies, f, context) {
+
+	if( isArray(dependencies) ) {
+		if( f === undefined ) {
+			f = dependencies.pop();
 		}
-		return fn;
+	} else if( isFunction(dependencies) ) {
+		context = f;
+		f = dependencies;
+		dependencies = f.toString().match(RE_FN_ARGS)[1].split(',') || [];
 	}
 
-	function onceFn (fnName, handler) {
-		fnListeners[fnName] = fnListeners[fnName] || [];
-		fnListeners[fnName].push(handler);
+	if( f instanceof Function ) {
+		fn.require(dependencies, f, context);
 	}
 
-	function triggerFn (fnName) {
-		var definition = definitions[fnName];
-		if( isArray(fnListeners[fnName]) ) {
-			for( var i = 0, len = fnListeners[fnName].length; i < len; i++ ) {
-				fnListeners[fnName][i](definition);
-			}
-		}
-	}
+	return fn;
+};
 
-	fn.waiting = {};
+function addDefinition (fnName, definition) {
+	definitions[fnName] = definition;
+	// console.debug('fn defined: ', fnName);
+	triggerFn(fnName);
+	delete fn.waiting[fnName];
+}
 
-	fn.run = function (dependencies, f, context) {
+fn.define = function (fnName, dependencies, fnDef) {
+	if( isString(fnName) ) {
+
+		var args = [];
 
 		if( isArray(dependencies) ) {
-			if( f === undefined ) {
-				f = dependencies.pop();
+			if( fnDef === undefined ) {
+				fnDef = dependencies.pop();
 			}
 		} else if( isFunction(dependencies) ) {
-			context = f;
-			f = dependencies;
-			dependencies = f.toString().match(RE_FN_ARGS)[1].split(',') || [];
-		}
-
-		if( f instanceof Function ) {
-			fn.require(dependencies, f, context);
-		}
-
-		return fn;
-	};
-
-	function addDefinition (fnName, definition) {
-		definitions[fnName] = definition;
-		console.debug('fn defined: ', fnName);
-		triggerFn(fnName);
-		delete fn.waiting[fnName];
-	}
-
-	fn.define = function (fnName, dependencies, fnDef) {
-		if( isString(fnName) ) {
-
-			var args = [];
-
-			if( isArray(dependencies) ) {
-				if( fnDef === undefined ) {
-					fnDef = dependencies.pop();
-				}
-			} else if( isFunction(dependencies) ) {
-				fnDef = dependencies;
-				dependencies = [];
-				fnDef.toString().replace(RE_FN_ARGS, function(match, params) {
-					params = params.replace(/\s/g,'');
-					if( params ) {
-						[].push.apply(dependencies, params.split(','));
-					}
-				});
-			}
-
-			fn.waiting[fnName] = dependencies;
-
-			fn.require(dependencies, function () {
-				var definition = fnDef.apply(definitions, arguments);
-				if( definition && definition.then instanceof Function ) {
-					definition.then(function (def) {
-						setTimeout(function () {
-							addDefinition(fnName, def);
-						}, 0);
-					});
-				} else {
-					addDefinition(fnName, definition);
+			fnDef = dependencies;
+			dependencies = [];
+			fnDef.toString().replace(RE_FN_ARGS, function(match, params) {
+				params = params.replace(/\s/g,'');
+				if( params ) {
+					[].push.apply(dependencies, params.split(','));
 				}
 			});
 		}
 
-		return fn;
+		fn.waiting[fnName] = dependencies;
+
+		fn.require(dependencies, function () {
+			var definition = fnDef.apply(definitions, arguments);
+			if( definition && definition.then instanceof Function ) {
+				definition.then(function (def) {
+					setTimeout(function () {
+						addDefinition(fnName, def);
+					}, 0);
+				});
+			} else {
+				addDefinition(fnName, definition);
+			}
+		});
+	}
+
+	return fn;
+};
+
+fn.require = function (dependencies, callback, context) {
+	if( !isFunction(callback) ) {
+		return false;
+	}
+
+	var runCallback = function () {
+		for( var i = 0, len = dependencies.length, injections = []; i < len; i++ ) {
+			if( dependencies[i] ) {
+				injections.push(definitions[dependencies[i]]);
+			}
+		}
+		callback.apply(context || definitions, injections);
 	};
 
-	fn.require = function (dependencies, callback, context) {
-		if( !isFunction(callback) ) {
-			return false;
-		}
+	runCallback.pending = 0;
 
-		var runCallback = function () {
-			for( var i = 0, len = dependencies.length, injections = []; i < len; i++ ) {
+	runCallback._try = function () {
+		runCallback.pending--;
+		if( !runCallback.pending ) {
+			runCallback();
+		}
+	};
+
+	runCallback._add = function (dependence) {
+		if( !definitions[dependence] ) {
+			runCallback.pending++;
+			fn.defer(function () {
+				if( definitions[dependence] ) {
+					runCallback._try();
+				} else {
+					onceFn(dependence, runCallback._try);
+				}
+			});
+		}
+	};
+
+	if( isString(dependencies) ) {
+		dependencies = [dependencies];
+	}
+
+	if( isArray(dependencies) ) {
+
+		if( dependencies.length ) {
+
+			for( var i = 0, len = dependencies.length; i < len; i++ ) {
 				if( dependencies[i] ) {
-					injections.push(definitions[dependencies[i]]);
+					runCallback._add(dependencies[i]);
 				}
 			}
-			callback.apply(context || definitions, injections);
-		};
 
-		runCallback.pending = 0;
-
-		runCallback._try = function () {
-			runCallback.pending--;
 			if( !runCallback.pending ) {
 				runCallback();
 			}
-		};
 
-		runCallback._add = function (dependence) {
-			if( !definitions[dependence] ) {
-				runCallback.pending++;
-				fn.defer(function () {
-					if( definitions[dependence] ) {
-						runCallback._try();
-					} else {
-						onceFn(dependence, runCallback._try);
-					}
-				});
-			}
-		};
-
-		if( isString(dependencies) ) {
-			dependencies = [dependencies];
+		} else {
+			runCallback();
 		}
-
-		if( isArray(dependencies) ) {
-
-			if( dependencies.length ) {
-
-				for( var i = 0, len = dependencies.length; i < len; i++ ) {
-					if( dependencies[i] ) {
-						runCallback._add(dependencies[i]);
-					}
-				}
-
-				if( !runCallback.pending ) {
-					runCallback();
-				}
-
-			} else {
-				runCallback();
-			}
-		}
-
-		return fn;
-	};
-
-	fn.when = function (fnName, callback, context) {
-		if( isFunction(callback) ) {
-			if( definitions[fnName] ) {
-				callback.apply(context, definitions[fnName]);
-			} else {
-				onceFn(fnName, function (definition) {
-					callback.apply(context, definition);
-				});
-			}
-		}
-
-		return fn;
-	};
-
-	fn.defer = function (f, time) {
-		setTimeout(f, time || 0);
-
-		return fn;
-	};
-
-	fn.globalize = globalize;
-
-	globalize('fn', fn);
-
-	if( !_global.define ) {
-		_global.define = fn.define;
 	}
 
-	if( !_global.require ) {
-		_global.require = fn.require;
-	}
+	return fn;
+};
 
-	if( typeof window !== 'undefined' ) {
-		fn.load = window.addEventListener ? function (listener) {
-			window.addEventListener('load', listener, false);
-			return fn;
-		} : function (listener) {
-			window.attachEvent('onload', listener );
-			return fn;
-		};
-	}
-
-
-	fn.ready = function (callback) {
-		if( callback instanceof Function ) {
-			if (/loaded|complete/.test(document.readyState)) {
-		    callback();
-		  } else {
-				fn.load(callback);
-			}
+fn.when = function (fnName, callback, context) {
+	if( isFunction(callback) ) {
+		if( definitions[fnName] ) {
+			callback.apply(context, definitions[fnName]);
+		} else {
+			onceFn(fnName, function (definition) {
+				callback.apply(context, definition);
+			});
 		}
+	}
+
+	return fn;
+};
+
+fn.defer = function (f, time) {
+	setTimeout(f, time || 0);
+
+	return fn;
+};
+
+// fn.globalize = globalize;
+//
+// globalize('fn', fn);
+//
+// if( !_global.define ) {
+// 	_global.define = fn.define;
+// }
+//
+// if( !_global.require ) {
+// 	_global.require = fn.require;
+// }
+
+if( typeof window !== 'undefined' ) {
+	fn.load = window.addEventListener ? function (listener) {
+		window.addEventListener('load', listener, false);
+		return fn;
+	} : function (listener) {
+		window.attachEvent('onload', listener );
 		return fn;
 	};
+}
 
-	fn.ready(function () {
-		var missingDependencies = {}, dependencies, key, i, len;
 
-		for( key in fn.waiting ) {
-			dependencies = fn.waiting[key];
-			missingDependencies[key] = [];
-			for( i = 0, len = dependencies.length; i < len; i++ ) {
-				if( !definitions[dependencies[i]] ) {
-					missingDependencies[key].push(dependencies[i]);
-				}
+fn.ready = ( typeof document === 'undefined' ) ? function (callback) {
+	callback();
+} :function (callback) {
+	if( callback instanceof Function ) {
+		if (/loaded|complete/.test(document.readyState)) {
+	    callback();
+	  } else {
+			fn.load(callback);
+		}
+	}
+	return fn;
+};
+
+fn.ready(function () {
+	var missingDependencies = {}, dependencies, key, i, len;
+
+	for( key in fn.waiting ) {
+		dependencies = fn.waiting[key];
+		missingDependencies[key] = [];
+		for( i = 0, len = dependencies.length; i < len; i++ ) {
+			if( !definitions[dependencies[i]] ) {
+				missingDependencies[key].push(dependencies[i]);
 			}
 		}
+	}
 
-		if( Object.keys(missingDependencies).length ) {
-			console.group('missing dependencies');
-			for( key in missingDependencies ) {
-				console.log(key, missingDependencies[key]);
-			}
-			console.groupEnd();
-		}
-	});
+	// if( Object.keys(missingDependencies).length ) {
+	// 	console.group('missing dependencies');
+	// 	for( key in missingDependencies ) {
+	// 		console.log(key, missingDependencies[key]);
+	// 	}
+	// 	console.groupEnd();
+	// }
+});
 
-})();
+module.exports = fn;
+
+		return module.exports;
+	})({});
+
+	root.fn = fn;
+	root.define = fn.define;
+	root.require = fn.require;
+
+})(this);
 
 /*
  * jqlite - JavaScript library to query and manipulate DOM
@@ -318,13 +331,11 @@
  */
 
 (function (root, factory) {
+  var jqlite = factory(root);
 
-  if ( typeof window === 'undefined' ) {
-    if ( typeof module !== 'undefined' ) {
-      module.exports = factory();
-    }
+  if( typeof module === 'object' && typeof exports === 'object' ) {
+    module.exports = jqlite;
   } else {
-    var jqlite = factory();
     if ( typeof define === 'function' ) {
       define('jqlite', function () { return jqlite; } );
     } else if( typeof angular === 'function' ) {
@@ -337,7 +348,7 @@
     }
   }
 
-})(this, function () {
+})(this, function (root, isNodejs) {
   'use strict';
 
   function _isType (type) {
@@ -356,12 +367,84 @@
 			_isFunction = _isType('function'),
 			_isString = _isType('string'),
 			_isNumber = _isType('number'),
+			_isBoolean = _isType('boolean'),
 			_isArray = Array.isArray || _instanceOf(Array),
 			_isDate = _instanceOf(Date),
 			_isRegExp = _instanceOf(RegExp),
 			_isElement = function(o) {
 		    return o && o.nodeType === 1;
-		  };
+		  },
+      _find = function (list, iteratee) {
+        if( !( iteratee instanceof Function ) ) {
+          var value = iteratee;
+          iteratee = function (item) {
+            return item === value;
+          };
+        }
+
+        for( var i = 0, n = list.length ; i < n ; i++ ) {
+          if( iteratee(list[i]) ) {
+            return {
+              index: i,
+              found: list[i]
+            };
+          }
+        }
+
+        return {
+          index: -1
+        };
+      };
+
+var arrayShift = Array.prototype.shift;
+
+  function _merge () {
+    var dest = arrayShift.call(arguments),
+        src = arrayShift.call(arguments),
+        key;
+
+    while( src ) {
+
+      if( typeof dest !== typeof src ) {
+        dest = _isArray(src) ? [] : ( _isObject(src) ? {} : src );
+      }
+
+      if( _isObject(src) ) {
+
+        for( key in src ) {
+          if( src[key] !== undefined ) {
+            if( typeof dest[key] !== typeof src[key] ) {
+                dest[key] = _merge(undefined, src[key]);
+            } else if( _isArray(dest[key]) ) {
+                [].push.apply(dest[key], src[key]);
+            } else if( _isObject(dest[key]) ) {
+                dest[key] = _merge(dest[key], src[key]);
+            } else {
+                dest[key] = src[key];
+            }
+          }
+        }
+      }
+      src = arrayShift.call(arguments);
+    }
+
+    return dest;
+  }
+
+  function _extend () {
+    var dest = arrayShift.call(arguments),
+        src = arrayShift.call(arguments),
+        key;
+
+    while( src ) {
+      for( key in src) {
+        dest[key] = src[key];
+      }
+      src = arrayShift.call(arguments);
+    }
+
+    return dest;
+  }
 
   if( !Element.prototype.matchesSelector ) {
     Element.prototype.matchesSelector = (
@@ -406,39 +489,62 @@
 
   // Events support
 
-  var attachElementListener = noop, detachElementListener = noop;
-
-  if( auxDiv.addEventListener )  { // W3C DOM
-
-    attachElementListener = function (element, eventName, listener) {
-      listener.$listener = function(e){
-          listener.apply(e.target,[e].concat(e.args));
-      };
-
-      element.addEventListener(eventName, listener.$listener,false);
-    };
-
-    detachElementListener = function (element, eventName, listener) {
-      element.removeEventListener(eventName, listener.$listener || listener, false);
-    };
-
-
-  } else if(document.body.attachEvent) { // IE DOM
-
-    attachElementListener = function (element, eventName, listener) {
-      listener.$listener = function(e){
-          listener.apply(e.target,[e].concat(e.args));
-      };
-
-      element.attachEvent("on" + eventName, listener.$listener, false);
-    };
-
-    detachElementListener = function (element, eventName, listener) {
-      element.detachEvent('on' + eventName, listener.$listener || listener );
-    };
-
-  } else {
+  if( !auxDiv.addEventListener && !document.body.attachEvent ) {
     throw 'Browser not compatible with element events';
+  }
+
+  var _attachElementListener = auxDiv.addEventListener ? function(element, eventName, listener) {
+        return element.addEventListener(eventName, listener, false);
+      } : function(element, eventName, listener) {
+        return element.attachEvent('on' + eventName, listener);
+      },
+      _detachElementListener = auxDiv.removeEventListener ? function(element, eventName, listener) {
+        return element.removeEventListener(eventName, listener, false);
+      } : function(element, eventName, listener) {
+        return element.detachEvent('on' + eventName, listener );
+      };
+
+  function detachElementListener (element, eventName, srcListener) {
+
+    if( srcListener === undefined ) {
+      if( element.$$jqListeners && element.$$jqListeners[eventName] ) {
+        for( var i = 0, n = element.$$jqListeners[eventName].length ; i < n ; i++ ) {
+          _detachElementListener( element, eventName, element.$$jqListeners[eventName][i] );
+        }
+        element.$$jqListeners[eventName] = [];
+      }
+      return;
+    }
+
+    if( element.$$jqListeners && element.$$jqListeners[eventName] ) {
+      var _listener = _find(element.$$jqListeners[eventName], function (l) {
+        return l.srcListener === srcListener;
+      });
+
+      if( _listener.found ) {
+        element.$$jqListeners[eventName].splice( _listener.index, 1 );
+        _detachElementListener( element, eventName, _listener.found );
+      }
+    }
+  }
+
+  function attachElementListener (element, eventName, listener, once) {
+
+    var _listener = once ? function(e) {
+        listener.apply(element, [e].concat(e.args) );
+        detachElementListener(element, eventName, listener);
+    } : function(e){
+        listener.apply(element, [e].concat(e.args) );
+    };
+
+    _listener.srcListener = listener;
+
+    element.$$jqListeners = element.$$jqListeners || {};
+    element.$$jqListeners[eventName] = element.$$jqListeners[eventName] || [];
+
+    element.$$jqListeners[eventName].push(_listener);
+
+    _attachElementListener( element, eventName, _listener );
   }
 
   // jqlite function
@@ -509,6 +615,32 @@
 
   jqlite.noop = noop;
 
+  jqlite.extend = function (deep) {
+    var args = [].slice.call(arguments);
+    if( _isBoolean(deep) ) {
+      args.shift();
+    } else {
+      deep = false;
+    }
+    if( deep ) {
+      _merge.apply(null, args );
+    } else {
+      _extend.apply(null, args );
+    }
+  };
+
+  jqlite.isObject = _isObject;
+  jqlite.isFunction = _isFunction;
+  jqlite.isString = _isString;
+  jqlite.isNumber = _isNumber;
+  jqlite.isBoolean = _isBoolean;
+  jqlite.isArray = _isArray;
+  jqlite.isDate = _isDate;
+  jqlite.isRegExp = _isRegExp;
+  jqlite.isElement = _isElement;
+
+  var $ = jqlite;
+
   // document ready
 
   var _onLoad = window.addEventListener ? function (listener) {
@@ -533,8 +665,40 @@
 
   ListDOM.prototype = [];
   ListDOM.prototype.ready = ready;
+  ListDOM.prototype.extend = function (deep) {
+    var args = [].slice.call(arguments);
+    if( _isBoolean(deep) ) {
+      args.shift();
+    } else {
+      deep = false;
+    }
+    if( deep ) {
+      _merge.apply(null, [ListDOM.prototype].concat(args) );
+    } else {
+      _extend.apply(null, [ListDOM.prototype].concat(args) );
+    }
+  };
 
   jqlite.fn = ListDOM.prototype;
+
+  function filterDuplicated (list) {
+    if( list.length <= 1 ) {
+      return list;
+    }
+
+    var filteredList = list.filter(function () {
+      if( this.___found___ ) {
+        return false;
+      }
+      this.___found___ = true;
+      return true;
+    });
+
+    for( var i = 0, len = filteredList.length; i < len ; i++ ) {
+      delete filteredList[i].___found___;
+    }
+    return filteredList;
+  }
 
   ListDOM.prototype.get = function(pos) {
       return pos ? this[pos] : this;
@@ -574,70 +738,48 @@
     };
 
   ListDOM.prototype.find = function(selector) {
-      var list = this, elems = new ListDOM(), found, i, len;
+      var list = this, elems = new ListDOM(), n = 0, i, j, len, len2, found;
+
+      if( !selector ) {
+        return list;
+      }
 
       if( /^\s*>/.test(selector) ) {
         selector = selector.replace(/^\s*>\s*([^\s]*)\s*/, function (match, selector2) {
           list = list.children(selector2);
           return '';
         });
-
-        if( !selector ) {
-          return list;
-        }
       }
 
-      if( list.length === 1 ) {
-        found = list[0].querySelectorAll(selector);
-        for( i = 0, len = found.length; i < len; i++ ) {
-          elems[i] = found[i];
-        }
-        elems.length = len;
-      } else if( list.length > 1 ) {
-        var j, len2;
-        for( i = 0, len = list.length; i < len; i++ ) {
-            found = list[i].querySelectorAll(selector);
-            for( j = 0, len2 = found.length; j < len2 ; j++ ) {
-                if( !found.item(j).___found___ ) {
-                    elems[elems.length] = found.item(j);
-                    elems.length++;
-                    found.item(j).___found___ = true;
-                }
-            }
-        }
-        for( i = 0, len = elems.length; i < len ; i++ ) {
-          delete elems[i].___found___;
+      for( i = 0, len = list.length; i < len; i++ ) {
+        found = list[i].querySelectorAll(selector);
+        for( j = 0, len2 = found.length; j < len2 ; j++ ) {
+          elems[n++] = found[j];
         }
       }
+      elems.length = n;
 
-      return elems;
+      return filterDuplicated(elems);
     };
+
+
   ListDOM.prototype.$ = ListDOM.prototype.find;
 
   ListDOM.prototype.add = function (selector, element) {
-    var el2add = jqlite(selector, element), i, j, len,
-        list = new ListDOM(), listLength = this.length;
+    var el2add = jqlite(selector, element),
+        i, len, n = this.length,
+        elems = new ListDOM();
 
-    for( i = 0, len = this.length; i < len ; i++ ) {
-      list[i] = this[i];
-      list[i].___found___ = true;
+    for( i = 0, len = this.length ; i < len; i++ ) {
+      elems[i] = this[i];
     }
 
-    for( i = 0, len = el2add.length; i < len ; i++ ) {
-      if( !el2add[i].___found___ ) {
-        list[listLength] = el2add[i];
-        listLength++;
-      }
+    for( i = 0, len = el2add.length ; i < len; i++ ) {
+      elems[n++] = el2add[i];
     }
+    elems.length = n;
 
-    list.length = listLength;
-
-    for( i = 0, len = this.length; i < len ; i++ ) {
-      delete list[i].___found___;
-    }
-
-    return list;
-
+    return filterDuplicated(elems);
   };
 
   ListDOM.prototype.each = function(each) {
@@ -667,64 +809,51 @@
       if( _isFunction(selector) ) {
         for( i = 0, len = this.length, elem; i < len ; i++ ) {
           elem = this[i];
-          if( selector.apply(elem,[elem]) ) {
+          if( selector.call(elem, i, elem) ) {
             elems.push(elem);
           }
         }
       } else if( _isString(selector) ) {
-          for( i = 0, len = this.length, elem; i < len ; i++ ) {
-            elem = this[i];
-            if( Element.prototype.matchesSelector.call(elem,selector) ) {
-              elems.push(elem);
-            }
+        for( i = 0, len = this.length, elem; i < len ; i++ ) {
+          elem = this[i];
+          if( Element.prototype.matchesSelector.call(elem,selector) ) {
+            elems.push(elem);
           }
+        }
       }
       return elems;
     };
 
+  var _getClosest = auxDiv.closest ? function (element, selector) {
+    return element.closest(selector);
+  } : function (element, selector) {
+    var elem = element.parentElement;
+
+    while( elem ) {
+      if( elem.matchesSelector(selector) ) {
+        return elem;
+      }
+      elem = elem.parentElement;
+    }
+    return null;
+  };
+
   ListDOM.prototype.closest = function(selector) {
-      var elems = new ListDOM(), i, len, elem;
+      var elems = new ListDOM(), n = 0, elem;
 
       if( !selector ) {
         return this;
       }
 
-      if( this.length === 1 ) {
-
-        elem = this[0].parentElement;
-
-        while( elem ) {
-          if( elem.matchesSelector(selector) ) {
-            elems.push(elem);
-            break;
-          }
-          elem = elem.parentElement;
-        }
-
-      } else if( this.length > 1 ) {
-
-        var j, len2;
-
-        for( i = 0, len = this.length; i < len; i++ ) {
-
-          elem = this[i].parentElement;
-          while( elem ) {
-            if( elem.matchesSelector(selector) ) {
-              if( !elem.___found___ ) {
-                elem.___found___ = true;
-                elems.push(elem);
-              }
-              break;
-            }
-            elem = elem.parentElement;
-          }
-        }
-        for( i = 0, len = elems.length; i < len ; i++ ) {
-          delete elems[i].___found___;
+      for( var i = 0, len = this.length; i < len; i++ ) {
+        elem = _getClosest(this[i], selector);
+        if( elem ) {
+          elems[n++] = elem;
         }
       }
+      elems.length = n;
 
-      return elems;
+      return filterDuplicated(elems);
     };
 
   ListDOM.prototype.children = auxDiv.children ? function (selector){
@@ -734,15 +863,12 @@
         pushMatches(elems, this[i].children);
       }
 
-      if( selector ) {
-        return elems.filter(selector);
-      }
-      return elems;
+      return selector ? elems.filter(selector) : elems;
 
     } : function (selector) {
       var elems = new ListDOM(), elem;
 
-      Array.prototype.forEach.call(this,function(elem){
+      Array.prototype.forEach.call(this, function(elem){
         elem = elem.firstElementChild || elem.firstChild;
         while(elem) {
           elems[elems.length] = elem;
@@ -750,10 +876,20 @@
         }
       });
 
-      if( selector ) {
-        return elems.filter(selector);
+      return selector ? elems.filter(selector) : elems;
+    };
+
+  ListDOM.prototype.parent = function (selector) {
+      var list = new ListDOM(), n = 0;
+
+      for( var i = 0, len = this.length; i < len; i++ ) {
+        if( this[i].parentElement ) {
+          list[n++] = this[i].parentElement;
+        }
       }
-      return elems;
+        list.length = n;
+
+      return filterDuplicated( selector ? list.filter(selector): list );
     };
 
   ListDOM.prototype.contents = function (selector) {
@@ -767,10 +903,7 @@
         }
       });
 
-      if( selector ) {
-        return elems.filter(selector);
-      }
-      return elems;
+      return selector ? elems.filter(selector) : elems;
     };
 
     // function _cloneEvents(nodeSrc, nodeDest) {
@@ -786,26 +919,59 @@
     // }
 
   ListDOM.prototype.clone = function (deep, cloneEvents) {
-    var list = new ListDOM(), i, len;
-
-    if( deep === undefined ) {
-      deep = true;
-    }
+    var elems = new ListDOM(), i, len;
+    deep = deep === undefined || deep;
 
     for( i = 0, len = this.length; i < len ; i++ ) {
-      list[i] = this[i].cloneNode(deep);
+      elems[i] = this[i].cloneNode(deep);
 
       // if(cloneEvents) {
       //   _cloneEvents(this[i], list[i]);
       // }
     }
 
-    list.length = len;
-
-    return list;
+    elems.length = len;
+    return elems;
   };
 
-  ListDOM.prototype.data = auxDiv.dataset ? function (key, value) {
+  ListDOM.prototype.data = function (key, value) {
+      if( !this.length ) {
+        return value ? this : undefined;
+      }
+
+      if( value === undefined ) {
+        var data = this[0].$$jqliteData && this[0].$$jqliteData[key];
+        if( data === undefined ) {
+          data = this.dataset(key);
+          if( data === undefined ) {
+            return undefined;
+          } else if( data.charAt(0) === '{' || data.charAt(0) === '[' ) {
+            return JSON.parse(data);
+          } else if( /^\d+$/.test(data) ) {
+            return Number(data);
+          } else {
+            return data;
+          }
+        }
+        return data;
+      }
+
+      for( var i = 0, n = this.length; i < n ; i++ ) {
+        this[i].$$jqliteData = this[i].$$jqliteData || {};
+        this[i].$$jqliteData[key] = value;
+      }
+    };
+
+  ListDOM.prototype.removeData = function (key) {
+      for( var i = 0, n = this.length ; i < n ; i++ ) {
+        if( this[i].$$jqliteData && this[i].$$jqliteData[key] ) {
+          delete this[i].$$jqliteData[key];
+        }
+      }
+      return this;
+    };
+
+  ListDOM.prototype.dataset = auxDiv.dataset ? function (key, value) {
       var i, len;
 
       if( value === undefined ) {
@@ -835,7 +1001,7 @@
       }
     };
 
-  ListDOM.prototype.removeData = auxDiv.dataset ? function (key) {
+  ListDOM.prototype.removeDataset = auxDiv.dataset ? function (key) {
       var i, len;
       if( typeof key === 'string' ) {
         for( i = 0, len = this.length; i < len ; i++ ) {
@@ -994,7 +1160,7 @@
   ListDOM.prototype.toggleClass = classListEnabled ? function (className, add) {
       var i, len;
 
-      if( className === undefined ) {
+      if( add === undefined ) {
         for( i = 0, len = this.length; i < len ; i++ ) {
           if ( this[i].classList.item(className) ) {
             this[i].classList.remove(className);
@@ -1110,138 +1276,155 @@
   ListDOM.prototype.replaceWith = function (content) {
       var jContent = $(content), jContent2, i, j, len, len2, element, parent, next;
 
-      jContent.remove();
+      if( !jContent.length ) {
+        return this;
+      }
 
-      for( i = 0, len = this.length; i < len; i++ ) {
+      for( i = this.length - 1; i >= 0; i-- ) {
         jContent2 = ( i ? jContent.clone(true) : jContent );
         element = this[i];
-        parent = element.parentElement || parentNode;
+        parent = element.parentElement;
 
         parent.replaceChild(jContent2[0], element);
 
         if( jContent2[1] ) {
-          next = jContent2[0];
-          for( j = 1, len2 = jContent2.length; j < len2; j++ ) {
-            parent.insertBefore(jContent2[j], next);
+          next = jContent2[0].nextElementSibling;
+          if( next ) {
+            for( j = 1, len2 = jContent2.length; j < len2; j++ ) {
+              parent.insertBefore(jContent2[j], next);
+            }
+          } else {
+            for( j = 1, len2 = jContent2.length; j < len2; j++ ) {
+              parent.appendChild(jContent2[j]);
+            }
           }
         }
-
       }
 
       return this;
     };
 
   ListDOM.prototype.wrap = function (content) {
-      var jContent = $(content), jContent2, i, j, len, len2, element, parent;
+    var getWrapper = _isFunction(content) ? function (i) {
+      return $( content(i) );
+    } : (function () {
+      var jContent = $(content),
+          jDolly = jContent.clone(true);
 
-      jContent.remove();
+      return function (i) {
+        return i ? jDolly.clone(true) : jContent;
+      };
+    })();
 
-      for( i = 0, len = this.length; i < len; i++ ) {
-        jContent2 = ( i ? jContent.clone(true) : jContent );
-        parent = this[i].parentElement || this[i].parentNode;
-        element = this[i].nextElementSibling || this[i].nextSibling;
-        if( element ) {
-          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
-            parent.insertBefore(jContent2[j], element);
-            element = jContent2[j];
-          }
-        } else {
-          for( j = 0, len2 = jContent2.length; j < len2; j++ ) {
-            parent.appendChild(jContent2[j]);
-          }
-        }
+    this.each(function (i, elem) {
+      var wrapper = getWrapper(i)[0],
+          parent = this.parentElement,
+          firstChild = wrapper;
 
-        if( jContent2[0] ) {
-          element = jContent2[0];
-          while( element.firstElementChild ) {
-            element = element.firstElementChild;
-          }
-          element.appendChild(this[i]);
-        }
+      while( firstChild.firstElementChild ) {
+        firstChild = firstChild.firstElementChild;
       }
 
-      return this;
-    };
+      parent.replaceChild(wrapper, this);
+      firstChild.appendChild(this);
+    });
 
-  function filterDuplicated (list) {
-    var filteredList = list.filter(function (node) {
-      if( node.___found___ ) {
-        return false;
+    return this;
+  };
+
+  ListDOM.prototype.wrapAll = function (content) {
+    var element = $( _isFunction(content) ? content() : content )[0],
+        parent = this[0].parentElement;
+
+    parent.replaceChild(element, this[0]);
+
+    if( element ) {
+      while( element.firstElementChild ) {
+        element = element.firstElementChild;
       }
-      node.___found___ = true;
-      return true;
-    });
-    filteredList.forEach(function (node) {
-      delete node.___found___;
-    });
-    return filteredList;
-  }
+    }
+
+    for( var i = 0, len = this.length; i < len ; i++ ) {
+      element.appendChild(this[i]);
+    }
+
+    return $(element);
+  };
+
+  ListDOM.prototype.unwrap = function () {
+
+    var parents = this.parent(), parent;
+
+    for( var i = 0, len = parents.length; i < len ; i++ ) {
+      parent = parents.eq(i);
+      parent.replaceWith( parent.children() );
+    }
+
+    return this;
+  };
 
   ListDOM.prototype.next = function (selector) {
-      var list = new ListDOM(), elem;
+      var list = new ListDOM(), elem, n = 0;
 
       for( var i = 0, len = this.length; i < len; i++ ) {
         elem = this[i].nextElementSibling;
         if( elem ) {
-          list.push(elem);
+          list[n++] = elem;
         }
       }
+      list.length = n;
 
       return ( typeof selector === 'string' ) ? list.filter(selector): list;
     };
 
   ListDOM.prototype.nextAll = function (selector) {
-      var list = new ListDOM(), elem;
+      var list = new ListDOM(), elem, n = 0;
 
       for( var i = 0, len = this.length; i < len; i++ ) {
         elem = this[i].nextElementSibling;
         while( elem ) {
-          list.push(elem);
+          list[n++] = elem;
           elem = elem.nextElementSibling;
         }
       }
+      list.length = n;
 
-      return filterDuplicated( ( typeof selector === 'string' ) ? list.filter(selector): list );
+      return filterDuplicated( selector ? list.filter(selector): list );
     };
 
   ListDOM.prototype.prev = function (selector) {
-      var list = new ListDOM(), elem;
+      var list = new ListDOM(), elem, n = 0;
 
       for( var i = 0, len = this.length; i < len; i++ ) {
         elem = this[i].previousElementSibling;
         if( elem ) {
-          list.push(elem);
+          list[n++] = elem;
         }
       }
+      list.length = n;
 
-      return ( typeof selector === 'string' ) ? list.filter(selector): list;
+      return selector ? list.filter(selector): list;
     };
+
+  function _prevAll (list, element, n) {
+    if( element ) {
+      if( element.previousElementSibling ) {
+        n = _prevAll(list, element.previousElementSibling, n);
+      }
+      list[n++] = element;
+    }
+    return n;
+  }
 
   ListDOM.prototype.prevAll = function (selector) {
-      var list = new ListDOM(), elem;
+      var list = new ListDOM(), elem, n = 0;
 
       for( var i = 0, len = this.length; i < len; i++ ) {
-        elem = this[i].previousElementSibling;
-        while( elem ) {
-          list.push(elem);
-          elem = elem.previousElementSibling;
-        }
+        n = _prevAll(list, this[i].previousElementSibling, n);
       }
+      list.length = n;
 
-      return filterDuplicated( ( typeof selector === 'string' ) ? list.filter(selector): list );
-    };
-
-  ListDOM.prototype.parent = function (selector) {
-      var list = new ListDOM(), elem;
-
-      for( var i = 0, len = this.length; i < len; i++ ) {
-        elem = this.parentElement || this.parentNode;
-        if( elem ) {
-          list.push(this[i]);
-        }
-      }
-
-      return ( typeof selector === 'string' ) ? list.filter(selector): list;
+      return filterDuplicated( selector ? list.filter(selector): list );
     };
 
   ListDOM.prototype.remove = function (selector) {
@@ -1297,6 +1480,80 @@
 
       return this;
     };
+
+  var transitionKey = auxDiv.style.webkitTransition !== undefined ? 'webkitTransition' : (
+    auxDiv.style.mozTransition !== undefined ? 'mozTransition' : (
+      auxDiv.style.msTransition !== undefined ? 'msTransition' : undefined
+    )
+  );
+
+  function animateFade (list, show, time, timingFunction, callback) {
+    if( typeof time === 'string' ) {
+      time = animateFade.times[time];
+    }
+
+    timingFunction = timingFunction || 'linear';
+    var opacityStart = show ? 0 : 1,
+        opacityEnd = show ? 1 : 0;
+
+    for( var i = 0, n = list.length; i < n ; i++ ) {
+      list[i].style.opacity = opacityStart;
+    }
+    setTimeout(function () {
+      for( var i = 0, n = list.length; i < n ; i++ ) {
+        list[i].$$jqliteTransition = list[i].$$jqliteTransition === undefined ? ( list[i].style[transitionKey] || '' ) : list[i].$$jqliteTransition;
+        list[i].style[transitionKey] = 'opacity ' + time + 'ms ' + timingFunction;
+        list[i].style.opacity = opacityEnd;
+      }
+    }, 20);
+
+    setTimeout(function () {
+      for( var i = 0, n = list.length; i < n ; i++ ) {
+        list[i].style.opacity = '';
+        list[i].style[transitionKey] = list[i].$$jqliteTransition;
+      }
+      callback.call(list);
+    }, time);
+
+    return list;
+  }
+
+  animateFade.times = {
+    slow: 600,
+    normal: 400,
+    fast: 200
+  };
+
+  ListDOM.prototype.show = function (time, easing, callback) {
+    if( time ) {
+      var list = this;
+      this.show();
+      return animateFade(list, true, time, easing, callback || function () {});
+    }
+
+    for( var i = 0, n = this.length; i < n ; i++ ) {
+      if( this[i].style.display ) {
+        this[i].style.display = '';
+      }
+    }
+    return this;
+  };
+
+  ListDOM.prototype.hide = function (time, easing, callback) {
+    if( time ) {
+      return animateFade(this, false, time, easing, function () {
+        this.hide();
+        if( callback ) {
+          callback.call(this);
+        }
+      });
+    }
+
+    for( var i = 0, n = this.length; i < n ; i++ ) {
+      this[i].style.display = 'none';
+    }
+    return this;
+  };
 
   ListDOM.prototype.position = function () {
     if( this.length ) {
@@ -1382,36 +1639,37 @@
       if( html === undefined ) {
         html = '';
         for( i = 0, len = this.length; i < len; i++ ) {
-          text += this[i].innerHTML;
+          html += this[i].innerHTML;
         }
-        return this;
+        return html;
       } else if( html === true ) {
         html = '';
         for( i = 0, len = this.length; i < len; i++ ) {
-          text += this[i].outerHTML;
+          html += this[i].outerHTML;
+        }
+        return html;
+      }
+
+      if( _isFunction(html) ) {
+        for( i = 0, len = this.length; i < len; i++ ) {
+          this[i].innerHTML = html(i, this[i].innerHTML);
         }
         return this;
       } else {
-        if( _isFunction(html) ) {
-          for( i = 0, len = this.length; i < len; i++ ) {
-            this[i].innerHTML = html(i, this[i].innerHTML);
-          }
-          return this;
-        } else {
-          for( i = 0, len = this.length; i < len; i++ ) {
-            this[i].innerHTML = html;
+        for( i = 0, len = this.length; i < len; i++ ) {
+          this[i].innerHTML = html;
+        }
+      }
+      this.find('script').each(function(){
+        if( (this.type == 'text/javascript' || !this.type) && this.textContent ) {
+          try{
+            runScripts('(function(){ \'use strict\';' + this.textContent + '})();');
+          } catch(err) {
+            throw new Error(err.message);
           }
         }
-        this.find('script').each(function(){
-          if( (this.type == 'text/javascript' || !this.type) && this.textContent ) {
-            try{
-              runScripts('(function(){ \'use strict\';' + this.textContent + '})();');
-            } catch(err) {
-              throw new Error(err.message);
-            }
-          }
-        });
-      }
+      });
+
       return this;
     };
 
@@ -1436,28 +1694,39 @@
       }
     };
 
-  ListDOM.prototype.on = function (eventName, listener) {
+  function addListListeners (list, eventName, listener, once) {
     var i, len;
 
     if( typeof eventName === 'string' ) {
-      if( !_isFunction(listener) ) {
-        throw 'listener needs to be a function';
-      }
 
-      for( i = 0, len = this.length; i < len; i++ ) {
-        attachElementListener(this[i], eventName, listener);
-      }
-    } else if( _isArray(eventName) ) {
-      for( i = 0, len = eventName.length; i < len; i++ ) {
-        this.on(eventName[i], listener);
-      }
-    } else if( _isObject(eventName) ) {
-      for( i in eventName ) {
-        this.on(i, eventName[i]);
+      if( /\s/.test(eventName) ) {
+        eventName = eventName.split(/\s+/g);
+      } else {
+        if( !_isFunction(listener) ) {
+          throw 'listener needs to be a function';
+        }
+
+        for( i = 0, len = list.length; i < len; i++ ) {
+          attachElementListener(list[i], eventName, listener, once);
+        }
       }
     }
 
-    return this;
+    if( _isArray(eventName) ) {
+      for( i = 0, len = eventName.length; i < len; i++ ) {
+        addListListeners(list, eventName[i], listener, once);
+      }
+    } else if( _isObject(eventName) ) {
+      for( i in eventName ) {
+        addListListeners(list, i, eventName[i], once);
+      }
+    }
+
+    return list;
+  }
+
+  ListDOM.prototype.on = function (eventName, listener) {
+    return addListListeners(this, eventName, listener);
   };
 
   var eventActions = {
@@ -1482,51 +1751,41 @@
   };
   eventActions.init();
 
-  function autoDestroyListener (element, eventName, listener) {
-    var _listener = function () {
-      detachElementListener(element, eventName, _listener);
-      listener.apply(null, arguments);
-    };
-
-    return _listener;
-  }
-
   ListDOM.prototype.once = function (eventName, listener) {
-
-    var i, len;
-
-    if( typeof eventName === 'string' ) {
-      if( !_isFunction(listener) ) {
-        throw 'listener needs to be a function';
-      }
-
-      var element;
-
-      for( i = 0, len = this.length; i < len; i++ ) {
-        element = this[i];
-        attachElementListener(element, eventName, autoDestroyListener(element, eventName, listener) );
-      }
-    } else if( _isArray(eventName) ) {
-      for( i = 0, len = eventName.length; i < len; i++ ) {
-        this.once(eventName[i], listener);
-      }
-    } else if( _isObject(eventName) ) {
-      for( i in eventName ) {
-        this.once(i, eventName[i]);
-      }
-    }
-
-    return this;
+    return addListListeners(this, eventName, listener, true);
   };
   // for jQuery compatibility
   ListDOM.prototype.one = ListDOM.prototype.once;
 
   ListDOM.prototype.off = function (eventName, listener) {
-    if( typeof eventName !== 'string' || !_isFunction(listener) ) {
+    var i, n;
+
+    if( /\s/.test(eventName) ) {
+      eventName = eventName.split(/\s+/g);
+    }
+
+    if( eventName instanceof Array ) {
+      for( i = 0, n = this.length; i < n; i++ ) {
+        this.off(eventName[i], listener);
+      }
+      return this;
+    }
+
+    if( eventName === undefined ) {
+      var registeredEvents, registeredEvent;
+
+      for( i = 0, n = this.length; i < n; i++ ) {
+        registeredEvents = this[i].$$jqListeners || {};
+        for( registeredEvent in registeredEvents ) {
+          detachElementListener(this[i], registeredEvent);
+          delete registeredEvents[registeredEvent];
+        }
+      }
+    } else if( typeof eventName !== 'string' || ( !_isFunction(listener) && listener !== undefined ) ) {
       throw 'bad arguments';
     }
 
-    for( var i = 0, len = this.length; i < len; i++ ) {
+    for( i = 0, n = this.length; i < n; i++ ) {
       detachElementListener(this[i], eventName, listener);
     }
     return this;
@@ -1566,11 +1825,18 @@
 
   // finally
 
+  jqlite.noConflict = function () {
+    if( root.$ === jqlite ) {
+      delete root.$;
+    }
+    return jqlite;
+  };
+
   return jqlite;
 
 });
 /*
- * css.js
+ * jq-plugin
  *
  * The MIT License (MIT)
  *
@@ -1604,1819 +1870,626 @@
   }
 
   var jq = root.$,
-      $doc = jq(document);
+      jDoc = jq(document)
+      noop = function (value) { return value; },
+      pluginCache = {},
+      pluginsAre = {},
+      pluginsFilterCache = {};
 
-  jq.plugin = function (selector, handler, collection) {
-    if( typeof selector === 'string' && handler instanceof Function ) {
-      jq.plugin.cache[selector] = handler;
-      jq.plugin.cache[selector]._collection = !!collection;
+  function pluginSelectorFilter (pluginSelector) {
+    if( !pluginsFilterCache[pluginSelector] ) {
+      pluginsFilterCache[pluginSelector] = function (el) {
+
+        if( el.__found__ ) {
+          return false;
+        }
+        el.__found__ = true;
+
+        el.$$plugins = el.$$plugins || {};
+        if( !el.$$plugins[pluginSelector] ) {
+          el.$$plugins[pluginSelector] = true;
+          return true;
+        }
+      };
+    }
+    return pluginsFilterCache[pluginSelector];
+  }
+
+  function findElements (jBase, pluginSelector) {
+    var matches = [], n = 0, i, j, len, len2, filtered,
+        pluginFilter = pluginSelectorFilter(pluginSelector);
+
+    for( i = 0, len = jBase.length ; i < len ; i++ ) {
+      filtered = [].filter.call( jBase[i].querySelectorAll(pluginSelector), pluginFilter );
+      for( j = 0, len2 = filtered.length ; j < len2 ; j++ ) {
+        matches[n++] = filtered[j];
+      }
     }
 
-    if( jq.plugin.ready ) {
-      jq.plugin.run($doc, selector);
-    } else if( !jq.plugin.loading ) {
-      jq.plugin.loading = true;
-      jq.plugin.init($doc);
+    for( i = 0 ; i < n ; i++ ) {
+      delete matches[i].__found__;
     }
-  };
-  jq.plugin.loading = false;
-  jq.plugin.cache = {};
-  jq.plugin.run = function (jBase, pluginSelector) {
 
-    var handler = jq.plugin.cache[pluginSelector],
-        elements = jBase.find(pluginSelector);
+    return jq(matches);
+  }
 
-    if( elements.length ) {
+  function runPlugin (jBase, pluginSelector) {
+    var handler = pluginCache[pluginSelector],
+        elements = findElements(jBase, pluginSelector);
+
+    if( handler && elements.length ) {
       if( handler._collection ) {
         handler( elements );
       } else {
         elements.each(handler);
       }
     }
-  };
-
-  jq.plugin.init = function (jBase) {
-    jq(function () {
-      for( var pluginSelector in jq.plugin.cache ) {
-        jq.plugin.run(jBase, pluginSelector);
-      }
-      jq.plugin.loading = false;
-      jq.plugin.ready = true;
-    });
-  };
-
-  function jqWidget (widgetName, handler) {
-    if( typeof widgetName === 'string' && handler instanceof Function ) {
-
-      jqWidget.widgets[widgetName] = handler;
-
-      if( jqWidget.enabled ) {
-        console.log('running widget directly', widgetName);
-        jq('[data-widget="' + widgetName + '"]').each(handler);
-      } else if( !jqWidget.loading ) {
-        jqWidget.loading = true;
-        jqWidget.init();
-      }
-    }
   }
 
-  jqWidget.init = function () {
+  function initPlugin () {
+    pluginsAre.loading = true;
     jq(function () {
-      jq.plugin('[data-widget]', function () {
-        var widgetName = this.getAttribute('data-widget');
+      for( var pluginSelector in pluginCache ) {
+        runPlugin(jDoc, pluginSelector);
+      }
 
-        console.log('running widget', widgetName);
+      jq(document.body).on('DOMSubtreeModified', function (e) {
+        var jTarget = jq(event.target);
 
-        if( jqWidget.widgets[widgetName] ) {
-          jqWidget.widgets[widgetName].call(this);
+        for( var pluginSelector in pluginCache ) {
+          runPlugin(jTarget, pluginSelector);
         }
       });
-      jqWidget.loading = false;
-      jqWidget.enabled = true;
+
+      delete pluginsAre.loading;
+      pluginsAre.running = true;
     });
-  };
-  jqWidget.widgets = {};
-
-  jq.widget = jqWidget;
-
-  var jqHtml = jq.fn.html;
-
-  jq.fn.html = function (html) {
-    var result = jqHtml.apply(this, arguments);
-
-    if(html) {
-      jq.plugin.init(this);
-    }
-
-    return result;
-  };
-
-})(this);
-
-// cookies.js library from https://developer.mozilla.org/en-US/docs/Web/API/document.cookie
-// adapted to be used with jstools-core
-
-(function (root, factory) {
-
-  if ( typeof module !== 'undefined' ) {
-    module.exports = factory();
-  } else {
-    if ( root.define ) {
-        define('$cookie', factory);
-    } else if ( root.angular ) {
-        var $cookie = factory();
-        angular.module('jstools.cookie', [])
-          .provider('$cookie', function () {
-
-            this.config = function (configFn) {
-              configFn.call(null, $cookie);
-            };
-
-            this.$get = function () {
-              return $cookie;
-            };
-          });
-    } else if( !root.$cookie ) {
-      root.$cookie = factory();
-    }
   }
 
-})(this, function(){
-    'use strict';
-
-    function cookie (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
-        if( sValue ) {
-            cookie.set(sKey, sValue, vEnd, sPath, sDomain, bSecure);
-        } else {
-            return cookie.get(sKey);
-        }
-    }
-
-    cookie.get = function (sKey) {
-        if (!sKey) { return null; }
-        return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
-    };
-
-    cookie.set = function (sKey, sValue, vEnd, sPath, sDomain, bSecure) {
-        if (!sKey || /^(?:expires|max\-age|path|domain|secure)$/i.test(sKey)) { return false; }
-        var sExpires = "";
-        if (vEnd) {
-            switch (vEnd.constructor) {
-                case Number:
-                    sExpires = vEnd === Infinity ? "; expires=Fri, 31 Dec 9999 23:59:59 GMT" : "; max-age=" + vEnd;
-                break;
-                case String:
-                    sExpires = "; expires=" + vEnd;
-                break;
-                case Date:
-                    sExpires = "; expires=" + vEnd.toUTCString();
-                break;
-            }
-        }
-        document.cookie = encodeURIComponent(sKey) + "=" + encodeURIComponent(sValue) + sExpires + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "") + (bSecure ? "; secure" : "");
-        return true;
-    };
-
-    cookie.remove = function (sKey, sPath, sDomain) {
-        if (!cookie.hasKey(sKey)) { return false; }
-        document.cookie = encodeURIComponent(sKey) + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT" + (sDomain ? "; domain=" + sDomain : "") + (sPath ? "; path=" + sPath : "");
-        return true;
-    };
-
-    cookie.hasKey = function (sKey) {
-        if (!sKey) { return false; }
-        return (new RegExp("(?:^|;\\s*)" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=")).test(document.cookie);
-    };
-
-    cookie.keys = function () {
-        var aKeys = document.cookie.replace(/((?:^|\s*;)[^\=]+)(?=;|$)|^\s*|\s*(?:\=[^;]*)?(?:\1|$)/g, "").split(/\s*(?:\=[^;]*)?;\s*/);
-        for (var nLen = aKeys.length, nIdx = 0; nIdx < nLen; nIdx++) { aKeys[nIdx] = decodeURIComponent(aKeys[nIdx]); }
-        return aKeys;
-    }
-
-    return cookie;
-});
-/*
- * events.js - Single library to handle generic events
-
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- */
-
-(function (root, factory) {
-
-  if ( typeof module !== 'undefined' ) {
-    module.exports = factory();
-  } else if( root ) {
-    if( root.define ) {
-      root.define('Events', function () { return factory(); } );
-    } else if( root.angular ) {
-      root.angular.module('jstools.events', []).factory('Events', function () { return factory(true); });
-    } else if( !root.Events ) {
-      root.Events = factory();
-    }
-  }
-
-})(this, function (ng) {
-	'use strict';
-
-  var method = ng ? {
-    on: '$$on', once: '$$once', off: '$$off', trigger: '$$triger'
-  } : {
-    on: 'on', once: 'once', off: 'off', trigger: 'trigger'
-  };
-
-	function _addListener (handlers, handler, context) {
-        if( ! handler instanceof Function ) {
-            return false;
-        }
-        handlers.push({ handler: handler, context: context });
-    }
-
-    function _triggerEvent (handlers, attrs, caller) {
-        if( handlers ) {
-            for( var i = 0, len = handlers.length; i < len; i++ ) {
-                handlers[i].handler.apply(caller, attrs);
-            }
-            return len;
-        }
-    }
-
-    function _emptyListener (handlers) {
-        if( handlers ) {
-            handlers.splice(0, handlers.length);
-        }
-    }
-
-    function _removeListener (handlers, handler) {
-        if( handlers ) {
-            for( var i = 0, len = handlers.length; i < len; ) {
-                if( handlers[i].handler === handler ) {
-                    handlers.splice(i, 1);
-                    len--;
-                } else {
-                    i++;
-                }
-            }
-        }
-    }
-
-    function Events (target) {
-        target = target || this;
-        var listeners = {};
-        var listenersOnce = {};
-
-        target[method.on] = function (eventName, handler, context) {
-            listeners[eventName] = listeners[eventName] || [];
-            _addListener(listeners[eventName], handler, context);
-        };
-
-        target[method.once] = function (eventName, handler, context) {
-            listenersOnce[eventName] = listenersOnce[eventName] || [];
-            _addListener(listenersOnce[eventName], handler, context);
-        };
-
-        target[method.trigger] = function (eventName, attrs, caller) {
-            _triggerEvent(listeners[eventName], attrs, caller);
-
-            var len = _triggerEvent(listenersOnce[eventName], attrs, caller);
-            if( len ) {
-                listenersOnce[eventName].splice(0, len);
-            }
-        };
-
-        target[method.off] = function (eventName, handler) {
-            if( handler === undefined ) {
-                _emptyListener(listeners[eventName]);
-                _emptyListener(listenersOnce[eventName]);
-            } else {
-                _removeListener(listeners[eventName], handler);
-                _removeListener(listenersOnce[eventName], handler);
-            }
-        };
-    }
-
-    return Events;
-});
-
-(function (root, factory) {
-    'use strict';
-
-    if ( typeof root !== 'undefined' ) {
-        if ( root.define ) {
-            define('$http', factory);
-        } else if ( root.angular ) {
-            var $http = factory();
-            angular.module('jstools.http', [])
-              .provider(function () {
-
-                this.config = function (configFn) {
-                  configFn.call(null, $http);
-                };
-
-                this.$get = function () {
-                  return $http;
-                };
-              });
-        } else if( !root.$http ) {
-            root.$http = factory();
-        }
-    }
-
-})(this, function () {
-    'use strict';
-
-    function _typeOf (type) {
-      return function (o) {
-        return typeof o === type;
-      };
-    }
-
-    function _instanceOf (obj) {
-      return function (o) {
-        return o instanceof obj;
-      };
-    }
-
-    var _isObject = _typeOf('object'),
-        _isArray = _instanceOf(Array),
-        _isFunction = _instanceOf(Function),
-        _isString = _typeOf('string');
-
-    function _copy (obj) {
-      if( _isArray(obj) ) {
-        var list = [];
-        for( var i = 0, len = obj.length; i < len ; i++ ) {
-          list[i] = _copy(obj[i]);
-        }
-        return list;
-      } else if( _isObject(obj) ) {
-        var o = {};
-        for( var key in obj ) {
-          o[key] = _copy(obj[key]);
-        }
-        return o;
-      }
-      return obj;
-    }
-
-    function _extend () {
-        var auxArray = [],
-            dest = auxArray.shift.call(arguments),
-            src = auxArray.shift.call(arguments),
-            key;
-
-        while( src ) {
-            for( key in src ) {
-                if( _isObject(dest[key]) && _isObject(src[key]) ) {
-                    dest[key] = _copy(src[key]);
-                } else {
-                    dest[key] = src[key];
-                }
-            }
-            src = auxArray.shift.call(arguments);
-        }
-
-        return dest;
-    }
-
-    function _resolveFunctions (o) {
-      for( var key in o ) {
-        if( _isFunction(o[key]) ) {
-          o[key] = o[key]();
-        } else if( _isObject(o[key]) ) {
-          _resolveFunctions(o[key]);
-        }
-      }
-      return o;
-    }
-
-    function joinPath () {
-        var path = (arguments[0] || '').replace(/\/$/, '');
-
-        for( var i = 1, len = arguments.length - 1 ; i < len ; i++ ) {
-            path += '/' + arguments[len].replace(/^\/|\/$/, '');
-        }
-        if( len ) {
-            path += arguments[len] ? ( '/' + arguments[len].replace(/^\//, '') ) : '';
-        }
-
-        return path;
-    }
-
-    function serializeParams (params, prefix, notFirst) {
-        if( params ) {
-
-            prefix = prefix || '';
-            notFirst = notFirst || 0;
-
-            if( _isFunction(params) ) {
-                return ( notFirst ? '&' : '' ) + encodeURIComponent(prefix) + '=' + encodeURIComponent( params() );
-            } else if( _isObject(params) ) {
-                var paramsStr = '';
-
-                for( var key in params ) {
-                    paramsStr += serializeParams( params[key], ( prefix ? (prefix + '.') : '' ) + key, notFirst++ );
-                }
-
-                return paramsStr;
-
-            } else {
-                return ( notFirst ? '&' : '' ) + encodeURIComponent(prefix) + '=' + encodeURIComponent(params);
-            }
-
-        } else return '';
-    }
-
-    function toTitleSlug(text) {
-        var key = text[0].toUpperCase() + text.substr(1);
-        return key.replace(/([a-z])([A-Z])/, function (match, lower, upper) {
-            return lower + '-' + upper;
-        });
-    }
-
-    function toCamelCase(text) {
-        var key = text[0].toLowerCase() + text.substr(1);
-        return key.replace(/([a-z])-([A-Z])/, function (match, lower, upper) {
-            return lower + upper;
-        });
-    }
-
-    function getStep( queue, fulfilled ) {
-      var step = queue.shift(), method = fulfilled ? 'onFulfill' : 'onReject';
-
-      while( step ) {
-        if( step[method] ) {
-          return step[method];
-        }
-        step = queue.shift();
-      }
-
+  jq.plugin = function (selector, handler, collection) {
+    if( typeof selector !== 'string' || !(handler instanceof Function) ) {
+      throw new Error('required selector (string) and handler (function)');
       return;
     }
 
-    function processQueue (queue, data, fulfilled) {
-        // console.log('processQueue', request, queue, data, fulfilled);
+    pluginCache[selector] = handler;
+    pluginCache[selector]._collection = !!collection;
 
-        var step = getStep( queue, fulfilled ),
-            newData;
-
-        if( step ) {
-
-          try {
-            newData = step(data);
-            fulfilled = true;
-          } catch (reason) {
-            newData = reason;
-            fulfilled = false;
-          }
-
-          if( newData && newData.then ) {
-            newData.then(function (result) {
-              processQueue(request, queue, result, true);
-            }, function (reason) {
-              processQueue(request, queue, reason, false);
-            });
-          } else {
-            processQueue(queue, (newData === undefined) ? data : newData, fulfilled);
-          }
-
-        } else {
-            step = queue.$finally.shift();
-
-            while ( step instanceof Function ) {
-              step(data);
-              step = queue.$finally.shift();
-            }
-            return;
-        }
+    if( pluginsAre.loading ) {
+      return;
     }
 
-    function requestResponse (request, data) {
-      return {
-        data: data,
-        status: request.status,
-        request: request
-      };
+    if( pluginsAre.running ) {
+      runPlugin(jDoc, selector);
+    } else {
+      initPlugin();
     }
+  };
 
-    function processResponse (request, handlersQueue, catchCodes) {
-        request.headers = {};
-        request.getAllResponseHeaders().replace(/\s*([^\:]+)\s*\:\s*([^\;\n]+)/g, function (match, key, value) {
-            request.headers[toCamelCase(key)] = value.trim();
-        });
+  // widgets
 
-        var data = request.responseText;
-        if( request.headers.contentType === 'application/json' ) {
-            data = JSON.parse(data);
-        } else if( request.headers.contentType === 'application/xml' ) {
-            data = (new DOMParser()).parseFromString(data, 'text/xml');
-        }
+  var widgets = {},
+      widgetsAre = {};
 
-        if( catchCodes[request.status] ) {
-            catchCodes[request.status].apply(request, [ data, function (data) {
-                processQueue(handlersQueue, requestResponse(request, data), true);
-            }, function (reason) {
-                processQueue(handlersQueue, requestResponse(request, reason), true);
-            } ]);
-        } else if( request.status >= 200 && request.status < 300 ) {
-            processQueue(handlersQueue, requestResponse(request, data), true);
-        } else {
-            processQueue(handlersQueue, requestResponse(request, data), false);
-        }
-    }
-
-    function HttpUrl (url) {
-        this.url = url;
-    }
-
-    ['get', 'head', 'options', 'post', 'put', 'delete', 'patch'].forEach(function (method) {
-        HttpUrl.prototype[method] = function () {
-            var args = [this.url];
-
-            [].push.apply(args, arguments);
-
-            return http[method].apply(null, args);
-        };
+  function initWidget () {
+    widgetsAre.loading = true;
+    jq(function () {
+      jq.plugin('[data-widget]', function () {
+        ( widgets[this.getAttribute('data-widget')] || noop ).call(this);
+      });
+      delete widgetsAre.loading;
+      widgetsAre.running = true;
     });
+  };
 
-    function http (url, _options){
+  jq.widget = function (widgetName, handler) {
+    if( typeof widgetName === 'string' && handler instanceof Function ) {
 
-        url = _isArray(url) ? joinPath.apply(null, url) : url;
+      widgets[widgetName] = handler;
 
-        if( _isObject(url) ) {
-            _options = url;
-            url = _options.url;
-        }
+      if( !widgetsAre.loading ) {
+        return;
+      }
 
-        if( _options === undefined ) {
-            return new HttpUrl(url);
-        }
-
-        var options = _resolveFunctions( _extend(_copy(http.defaults), _options) ),
-            key,
-            catchCodes = {},
-            handlersQueue = [];
-
-        if( !url ) {
-            throw 'url missing';
-            return false;
-        }
-
-        if( /^get$/.test(options.method) && _isObject(options.data) && Object.keys(options.data).length ) {
-            console.log('options.data', options.data);
-            url += '?' + serializeParams(options.data);
-            options.data = null;
-        }
-
-        var request = null;
-        try { // Firefox, Opera 8.0+, Safari
-            request = new XMLHttpRequest();
-        } catch (e) { // Internet Explorer
-            try { request = new ActiveXObject("Msxml2.XMLHTTP"); }
-            catch (e) { request = new ActiveXObject("Microsoft.XMLHTTP"); }
-        }
-        if (request===null) { throw "Browser does not support HTTP Request"; }
-
-        request.open( options.method.toUpperCase(), url, (options.async === undefined) ? true : options.async );
-
-        for( key in options.headers ) {
-            request.setRequestHeader( toTitleSlug(key), options.headers[key] );
-        }
-
-        request.onreadystatechange = function(){
-            if( request.readyState === 'complete' || request.readyState === 4 ) {
-                processResponse(request, handlersQueue, catchCodes);
-            }
-        };
-
-        if( options.data !== undefined && !_isString(options.data) ) {
-            options.data = JSON.stringify(options.data);
-        }
-
-        request.send( options.data );
-
-        request.then = function (onFulfilled, onRejected) {
-            if( _isFunction(onFulfilled) ) {
-                handlersQueue.push({ onFulfill: onFulfilled, onReject: onRejected });
-            }
-            return request;
-        };
-
-        request.catch = function (onRejected) {
-            if( _isFunction(onRejected) ) {
-                handlersQueue.push({ onFulfill: null, onReject: onRejected });
-            }
-            return request;
-        };
-
-        handlersQueue.$finally = [];
-
-        request.finally = function (onAlways) {
-            handlersQueue.$finally.push(onAlways);
-            return request;
-        };
-
-        return request;
+      if( widgetsAre.running ) {
+        jq('[data-widget="' + widgetName + '"]').each(handler);
+      } else {
+        initWidget();
+      }
     }
+  };
 
-    http.defaults = {
-        method: 'get',
-        headers: {
-            contentType: 'application/json'
-        }
-    };
+})(this);
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
-    ['get', 'head', 'options', 'post', 'put', 'delete'].forEach(function (method) {
-        http[method] = function (url, data, _options){
+var arrayShift = [].shift;
 
-            url = ( _isArray(url) ) ? joinPath.apply(null, url) : url;
+module.exports = function extend () {
+  var dest = arrayShift.call(arguments),
+      src = arrayShift.call(arguments),
+      key;
 
-            if( _isObject(url) ) {
-                _options = url;
-                url = _options.url;
-            }
-            _options = _options || {};
-            _options.data = data;
-            _options.method = method;
-
-            return http(url, _options);
-        }
-    });
-
-    http.patch = function (url, data, options) {
-
-        url = ( _isArray(url) ) ? joinPath.apply(null, url) : url;
-
-        if( _isObject(url) ) {
-            url.method = 'patch';
-            return http(url);
-        } else if( _isString(url) ) {
-            options = _isObject(options) ? options : {};
-
-            if( data ) {
-                return http(url, _extend(options, {
-                    method: 'patch',
-                    data: data
-                }) );
-            } else {
-                var patchOps = [],
-                    addOp = function (patchOp) {
-                        patchOps.push(patchOp);
-                        return patchHandler;
-                    },
-                    patchHandler = {
-                        add: function (path, value) {
-                            return addOp({ op: 'add', path: path, value: value });
-                        },
-                        test: function (path, value) {
-                            return addOp({ op: 'test', path: path, value: value });
-                        },
-                        replace: function (path, value) {
-                            return addOp({ op: 'replace', path: path, value: value });
-                        },
-                        move: function (from, path) {
-                            return addOp({ op: 'move', from: from, path: path });
-                        },
-                        copy: function (from, path) {
-                            return addOp({ op: 'copy', from: from, path: path });
-                        },
-                        remove: function (path) {
-                            return addOp({ op: 'remove', path: path });
-                        },
-
-                        flush: function () {
-                            patchOps.splice(0, patchOps.length);
-                            return patchHandler;
-                        },
-
-                        submit: function (data) {
-
-                            data = data || patchOps;
-
-                            return http(url, _extend(options, {
-                                method: 'patch',
-                                data: data
-                            }) );
-                        }
-                    };
-
-                return patchHandler;
-            }
-
-        }
-    };
-
-    return http;
-});
-/*
- * promise.js
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- */
-
-(function (root, factory) {
-
-  if ( typeof module !== 'undefined' ) {
-    module.exports = factory(root);
-  } else {
-    if ( root.define ) {
-      root.define('$promise', function () { return factory(root); } );
-    } else if ( root.angular ) {
-        var $promise = factory(root);
-        root.angular.module('jstools.promise', [])
-          .provider('$promise', function () {
-            this.config = function (configFn) {
-              configFn.call(null, $promise);
-            };
-
-            this.$get = function () {
-              return $promise;
-            };
-          });
-    } else if( !root.$promise ) {
-      root.$promise = factory(root);
+  while( src ) {
+    for( key in src) {
+      dest[key] = src[key];
     }
+    src = arrayShift.call(arguments);
   }
 
-})(this, function (root) {
+  return dest;
+};
 
-	function processPromise (promise, handler) {
-		if( handler instanceof Function ) {
-			setTimeout(function () {
-				handler.apply(promise, [function (result) {
-					promise.resolve(result);
-				}, function (result) {
-					promise.reject(result);
-				}]);
-			}, 0);
-		}
-	}
+},{}],2:[function(require,module,exports){
 
-	function getStep(queue, action) {
-		var step = queue.shift();
+var RE_$$ = /^\$\$/,
+    arrayShift = [].shift,
+    _ = require('./kit-type');
 
-		while( queue.length ) {
-			if( step[action] ) {
-				return step;
-			}
-			step = queue.shift();
-		}
+function _merge () {
+    var dest = arrayShift.call(arguments),
+        src = arrayShift.call(arguments),
+        key;
 
-		return (step && step[action]) ? step : false;
-	}
+    while( src ) {
 
-	var actionByStatus = {
-		fulfilled: 'then',
-		rejected: 'catch'
-	};
-
-	function processResult (promise, status, value) {
-
-
-		var action = actionByStatus[ status ],
-			  step = getStep(promise.queue, action);
-
-    if( step ) {
-			promise['[[PromiseStatus]]'] = status;
-			if( value !== undefined ) {
-				promise['[[PromiseValue]]'] = value;
-			}
-		} else if( promise['[[PromiseStatus]]'] === 'rejected' ) {
-			throw new Error('unhandled promise');
-		} else {
-			step = promise.queue.finally.shift();
-
-			while( step ) {
-				step(value);
-				step = promise.queue.finally.shift();
-			}
-
-			step = false;
-		}
-
-		if( step && step[action] ) {
-
-			try {
-				var newValue = step[action].call(promise, value);
-				promise['[[PromiseStatus]]'] = 'fulfilled';
-			} catch(err) {
-				promise['[[PromiseStatus]]'] = 'rejected';
-				promise['[[PromiseValue]]'] = err;
-				newValue = err;
-			}
-
-			if( newValue && newValue.then instanceof Function ) {
-
-				newValue.then(function (result) {
-					promise.resolve( result );
-				}, function (reason) {
-					promise.reject( reason );
-				});
-
-			} else {
-
-				switch ( promise['[[PromiseStatus]]'] ) {
-					case 'fulfilled':
-						promise.resolve( newValue === undefined ? value : newValue );
-						break;
-					case 'rejected':
-						promise.reject( newValue === undefined ? value : newValue );
-						break;
-				}
-			}
-
-		}
-
-		return promise;
-	}
-
-	function initPromise(promise, handler) {
-		promise.queue = [];
-		promise.queue.finally = [];
-
-		/*jshint validthis: true */
-		promise['[[PromiseStatus]]'] = 'pending';
-		promise['[[PromiseValue]]'] = undefined;
-
-		processPromise(promise, handler);
-	}
-
-	function P(handler) {
-
-		/*jshint validthis: true */
-		if( this === undefined || this === root ) {
-			return new P(handler);
-		} else {
-			initPromise(this, handler);
-		}
-	}
-
-	P.prototype.then = function (onFulfilled, onRejected) {
-		this.queue.push({
-			then: ( onFulfilled instanceof Function ) ? onFulfilled : false,
-			catch: ( onRejected instanceof Function ) ? onRejected : false
-		});
-
-		return this;
-	};
-
-	P.prototype.catch = function (onRejected) {
-		this.then(undefined, onRejected);
-
-		return this;
-	};
-
-	P.prototype.finally = function (onFulfilled) {
-		if( onFulfilled instanceof Function ) {
-			this.queue.finally.push(onFulfilled);
-		}
-
-		return this;
-	};
-
-	P.prototype.resolve = function (value) {
-		return processResult(this, 'fulfilled', value);
-	};
-
-	P.prototype.reject = function (reason) {
-		return processResult(this, 'rejected', reason);
-	};
-
-  P.resolve = function (value) {
-    return P(function (resolve, reject) {
-      resolve(value);
-    });
-  };
-
-  P.reject = function (reason) {
-    return P(function (resolve, reject) {
-      reject(reason);
-    });
-  };
-
-	P.defer = function () {
-		var deferred = new P();
-		deferred.promise = deferred;
-		return deferred;
-	};
-
-	P.when = function (promise) {
-		return P(function (resolve, reject) {
-			if( promise && promise.then ) {
-				promise.then(resolve, reject);
-			} else {
-				resolve(promise);
-			}
-		});
-	};
-
-	P.all = function (promisesList) {
-
-		promisesList = ( promisesList instanceof Array ) ? promisesList : [];
-
-    var pending = promisesList.length, promisesResult = [];
-    promisesResult.length = promisesList.length;
-
-		return new P(function (resolve, reject) {
-
-			if( !pending ) {
-				resolve([]);
-				return;
-			}
-
-			promisesList.forEach(function (promise, index) {
-				if( promise instanceof Object && promise.then ) {
-
-          if( promise['[[PromiseStatus]]'] === 'fulfilled' ) {
-            promisesResult[index] = promise['[[PromiseValue]]'];
-            pending--;
-
-            if( !pending ) {
-                resolve(promisesResult);
-            }
-      		} else if( promise['[[PromiseStatus]]'] === 'reject' ) {
-            reject(promise['[[PromiseValue]]']);
-      		} else {
-  					promise.then(function (result) {
-
-  						promisesResult[index] = result;
-              pending--;
-
-  						if( !pending ) {
-              		resolve(promisesResult);
-  						}
-
-  					}, reject);
-          }
-
-				} else {
-          promisesResult[index] = promise;
-          pending--;
-
-          if( !pending ) {
-              resolve(promisesResult);
-          }
-				}
-			});
-		});
-
-	};
-
-	return P;
-
-});
-/*
- * css.js
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- */
-
-
-(function (root, factory) {
-	'use strict';
-
-	if ( typeof module !== 'undefined' ) {
-		module.exports = factory();
-	} else {
-		if ( root.define ) {
-			define('Scope', factory );
-		} else if ( root.angular ) {
-				var Scope = factory();
-				angular.module('jstools.scope', [])
-					.factory('Scope', factory);
-		} else if( !root.Scope ) {
-			root.Scope = factory();
-		}
-	}
-
-})(this, function () {
-	'use strict';
-
-    function parseExpression (expression) {
-        /* jshint ignore:start */
-        return (new Function('model', 'try{ with(model) { return (' + expression + ') }; } catch(err) { return \'\'; }'));
-        /* jshint ignore:end */
-    }
-
-    var Scope = function (data) {
-				if(!this) {
-					return new Scope(data);
-				}
-
-        if( data instanceof Object ) {
-            this.$$extend(data);
-        }
-    };
-
-    Scope.prototype.$$new = function(data) {
-        var S = function () {
-            this.$$extend(data);
-        };
-        S.prototype = this;
-        return new S(data);
-    };
-
-    Scope.prototype.$$extend = function(data) {
-        for( var key in data ) {
-            this[key] = data[key];
-        }
-        return this;
-    };
-
-    Scope.prototype.$$eval = function ( expression ) {
-        return parseExpression(expression)(this);
-    };
-
-    return Scope;
-});
-/*
- * compile.js
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- */
-
-
-(function (root, factory) {
-    'use strict';
-
-    if ( typeof module !== 'undefined' ) {
-        module.exports = factory();
-    } else {
-    	if ( root.define !== undefined ) {
-            root.define('$template', factory );
-        } else if ( root.angular ) {
-            var $template = factory(root);
-            root.angular.module('jstools.template', [])
-              .provider('$template', function () {
-                this.config = function (configFn) {
-                  configFn.call(null, $template);
-                };
-
-                this.$get = function () {
-                  return $template;
-                };
-              });
-        } else if ( root.define !== undefined ) {
-            root.define('$template', factory );
-        } else if( !root.$template ) {
-            root.$template = factory();
-        }
-    }
-
-})(this, function () {
-    'use strict';
-
-    function noop () {}
-
-    function _instanceof (prototype) {
-    	return function (o) {
-    		return o instanceof prototype;
-    	};
-    }
-
-    function isString (o) {
-    	return typeof o === 'string';
-    }
-    var isFunction = _instanceof(Function),
-    	isArray = _instanceof(Array),
-    	isObject = _instanceof(Object);
-
-    // ----------------------------
-
-    function parseExpression (expression) {
-        /* jshint ignore:start */
-        return (new Function('model', 'try{ with(model) { return (' + expression + ') }; } catch(err) { return \'\'; }'));
-        /* jshint ignore:end */
-    }
-
-    function _each(o, handler) {
-
-      if( !isFunction(handler) ) {
-        throw 'handler should be a function';
-      }
-
-      if( isArray(o) ) {
-        o.forEach(handler);
-      } else if( isObject(o) ) {
-        for( var key in o ) {
-          handler.apply(null, [o[key], key]);
-        }
-      }
-    }
-
-    function _extend (dest, src) {
-      for( var key in src ) {
-        dest[key] = src[key];
-      }
-    }
-
-    function Scope (data) {
-        if( data instanceof Object ) {
-            _extend(this, data);
-        }
-    }
-
-    Scope.prototype.$new = function(data) {
-        var S = function (data) {
-            if( data instanceof Object ) {
-                _extend(this, data);
-            }
-        };
-        S.prototype = this;
-        return new S(data);
-    };
-
-    Scope.prototype.$extend = function(data) {
-        return _extend(this, data);
-    };
-
-    Scope.prototype.$eval = function ( expression ) {
-        return parseExpression(expression)(this);
-    };
-
-    // ----------------------------
-
-    var splitRex = /\$[\w\?]*{[^\}]+}|{[\$\/]}|{\:}/,
-        matchRex = /(\$([\w\?]*){([^\}]+)})|({[\$\/]})|({\:})/g;
-
-    function _compile(tmpl){
-
-        if( !isString(tmpl) ) {
-            throw 'template should be a string';
+        if( typeof dest !== typeof src ) {
+            dest = _.isArray(src) ? [] : ( _.isObject(src) ? {} : src );
         }
 
-        var texts = tmpl.split(splitRex),
-            list = [texts.shift()];
+        if( _.isObject(src) ) {
 
-        tmpl.replace(matchRex,function(match, match2, cmd, expression, closer, colon){
-            list.push( closer ?
-            			{ cmd: '', expression: '/' } :
-            			( colon ?
-            				{ cmd: '', expression: 'else' } :
-            				{ cmd: cmd, expression: expression }
-            			)
-            		);
-            list.push(texts.shift());
-        });
-
-        var compiled = raiseList(list, 'root');
-
-        return compiled;
-    }
-
-    function raiseList(tokens, cmd, expression) {
-        cmd = (cmd || '').trim();
-        expression = expression || '';
-
-        var options = { content: [] },
-            currentOption = 'content',
-            nextOption = function (optionName) {
-                options[optionName] = [];
-                currentOption = optionName;
-            };
-
-        var token = tokens.shift();
-
-        while( token !== undefined ){
-
-            if( typeof token === 'string' ) {
-            	options[currentOption].push(token);
-            } else if( isObject(token) ) {
-                if( token.cmd ) {
-
-                    if( _cmd[token.cmd] && _cmd[token.cmd].standalone ) {
-                      options[currentOption].push(new ModelScript(token.cmd,token.expression.replace(/\/$/,'')));
+            for( key in src ) {
+                if( src[key] !== undefined ) {
+                    if( typeof dest[key] !== typeof src[key] ) {
+                        dest[key] = _merge(undefined, src[key]);
+                    } else if( _.isArray(dest[key]) ) {
+                        [].push.apply(dest[key], src[key]);
+                    } else if( _.isObject(dest[key]) ) {
+                        dest[key] = _merge(dest[key], src[key]);
                     } else {
-                      switch(token.cmd) {
-                          case 'case':
-                          case 'when':
-                              nextOption(token.expression);
-                              break;
-                          default: // cmd is like a helper
-                              if( token.expression.substr(-1) === '/' ) {
-                              	options[currentOption].push(new ModelScript(token.cmd, token.expression.replace(/\/$/,'') ));
-                              } else {
-                              	options[currentOption].push(raiseList(tokens, token.cmd, token.expression));
-                              }
-                              break;
-                      }
-                    }
-
-                } else switch( token.expression ) {
-                    case 'else':
-                    case 'otherwise': nextOption('otherwise'); break;
-                    case '/':
-                        return new ModelScript(cmd, expression, options); // base case
-                    default:
-                        options[currentOption].push( new ModelScript('var', token.expression ) );
-                        break;
-                }
-            }
-            token = tokens.shift();
-        }
-        return new ModelScript(cmd, expression, options);
-    }
-
-    function _evalContent(scope, content) {
-        var result = '';
-
-        if( isFunction(content) ) {
-          return content(scope);
-        } else if( isArray(content) ) {
-
-          // console.warn('_evalContent', scope, content);
-          content.forEach(function(token){
-              if( isString(token) ) {
-              	result += token;
-              } else if( token instanceof ModelScript ) {
-              	result += token.render(scope);
-              } else if( isArray(token) ) {
-              	result += _evalContent(scope, content);
-              }
-          });
-
-          return result;
-        } else {
-          return content;
-        }
-    }
-
-
-
-    var _cmd = {
-          root: function(scope){
-            return this.content(scope);
-          },
-          var: function(scope, expression){
-            return scope.$eval(expression);
-          },
-          if: function(scope, condition){
-            return scope.$eval(condition) ? this.content(scope) : this.otherwise(scope);
-          }
-        };
-    _cmd['?'] = _cmd.if;
-
-    function _optionEvaluator (content) {
-      return function (scope) {
-        return _evalContent(scope, content );
-      };
-    }
-
-    function ModelScript(cmd, expression, options){
-        this.cmd = cmd;
-        this.expression = expression;
-        this.options = { content: noop, otherwise: noop };
-
-        for( var key in options ) {
-          this.options[key] = _optionEvaluator(options[key]);
-        }
-    }
-
-    ModelScript.prototype.render = function (data) {
-
-        if( !isFunction(_cmd[this.cmd]) ) {
-          return '[command ' + this.cmd+' not found]';
-        }
-
-        var scope = ( data instanceof Scope ) ? data : new Scope(data),
-            content = _cmd[this.cmd].apply(
-                          this.options,
-                          [scope, this.expression]
-                      ),
-            contentRendered = _evalContent(scope, content);
-
-        return contentRendered === undefined ? '' : contentRendered;
-    };
-
-    function compile (template) {
-        var compiled = _compile(template),
-            renderer = function (scope) {
-                return compiled.render(scope);
-            };
-
-        renderer.compiled = compiled;
-
-        return renderer;
-    }
-
-    compile.cmd = function(cmdName, handler, standalone){
-        if( isString(cmdName) && isFunction(handler) ) {
-            handler.standalone = standalone;
-            _cmd[cmdName] = handler;
-        }
-    };
-
-    // template as templates cache
-
-    function template (name, tmpl) {
-      if( tmpl === undefined ) {
-        return name ? template.cache[name] : undefined;
-      }
-
-      if( isString(name) && isString(tmpl) ) {
-        template.cache[name] = compile(tmpl);
-        template.cache[name].src = tmpl;
-      }
-
-      return template.cache[name];
-    }
-    template.compile = compile;
-    template.cache = {};
-    template.cmd = compile.cmd;
-    template.helper = compile.cmd;
-
-
-    // each as compile.cmd example
-
-    var RE_EACH_INDEX = /^(.*)(\,(.*))in(.*)$/,
-        RE_EACH = /^(.*)\bin\b(.*)$/,
-        _cmdEach = function (scope, listExp, itemExp, indexExp) {
-
-          var _this = this,
-              result = '',
-              list = scope.$eval(listExp),
-              indexKey;
-
-          if( isArray(list) ) {
-            indexKey = '$index';
-          } else if( isObject(list) ) {
-            indexKey = '$key';
-          } else {
-            console.warn('can not list', list);
-            return '';
-          }
-
-          _each(list, function (item, index) {
-            var o = {};
-            o[itemExp] = item;
-            o[indexKey] = index;
-            if( indexExp ) {
-              o[indexExp] = index;
-            }
-            result += _this.content( scope.$new(o) );
-          });
-
-          return result;
-        };
-
-    template.cmd('each', function (scope, expression) {
-          var _this = this, match;
-
-          match = expression.match(RE_EACH_INDEX);
-          if( match ) {
-            return _cmdEach.call(this, scope, match[4], match[1].trim(), match[3].trim());
-          }
-
-          match = expression.match(RE_EACH);
-          if ( match ) {
-            return _cmdEach.call(this, scope, match[2], match[1].trim());
-          }
-
-          throw expression + ' malformed each expression';
-        });
-
-    // cmd: include
-
-    template.cmd('include', function (scope, expression) {
-      var partial = template( expression.trim() );
-      if( partial ) {
-        return partial(scope);
-      }
-      partial = template( scope.$eval(expression) );
-      if( partial ) {
-        return partial(scope);
-      }
-
-      throw 'partial' + expression + 'not found';
-    });
-
-    // --------------------------
-
-    return template;
-});
-/*
- * utils.js
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Jesús Manuel Germade Castiñeiras <jesus@germade.es>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- */
-
-(function (root, factory) {
-	'use strict';
-
-	if ( typeof module !== 'undefined' ) {
-		module.exports = factory();
-	} else {
-		if ( root.define ) {
-			root.define('$utils', factory );
-		} else if ( root.angular ) {
-			root.angular.module('jstools.utils', []).factory(factory);
-		} else if( !root.$utils ) {
-			root.$utils = factory();
-			if( !root._ ) {
-				root._ = root.$utils;
-			}
-		}
-	}
-
-})(this, function () {
-	'use strict';
-
-		function _isType (type) {
-        return function (o) {
-            return (typeof o === type);
-        };
-    }
-
-    function _instanceOf (_constructor) {
-        return function (o) {
-            return ( o instanceof _constructor );
-        };
-    }
-
-		var _isObject = _isType('object'),
-				_isFunction = _isType('function'),
-				_isString = _isType('string'),
-				_isNumber = _isType('number'),
-				_isArray = Array.isArray || _instanceOf(Array),
-				_isDate = _instanceOf(Date),
-				_isRegExp = _instanceOf(RegExp),
-				_isElement = function(o) {
-			    return o && obj.nodeType === 1;
-			  };
-
-    function _key (o, fullKey, value){
-        if( !_isObject(o) ) return false;
-        var oKey, keys = fullKey.split('.');
-        if(value !== undefined) {
-            if(keys.length) {
-                oKey = keys.shift();
-                var nextKey = keys.shift();
-                while( nextKey ) {
-                    if( !o[oKey] ) o[oKey] = {};
-                    o = o[oKey];
-                    oKey = nextKey;
-                    nextKey = keys.shift();
-                }
-                o[oKey] = value;
-                return value;
-            }
-            return false;
-        } else {
-            for(var k = 0, len = keys.length, inKeys = o || {}; k < len ; k++ ) {
-                oKey = keys[k];
-                if( oKey in inKeys ) inKeys = inKeys[keys[k]] || {};
-                else return false;
-            }
-            return inKeys;
-        }
-    }
-
-    var RE_$$ = /^\$\$/,
-        arrayShift = [].shift;
-
-        function _merge () {
-            var dest = arrayShift.call(arguments),
-                src = arrayShift.call(arguments),
-                key;
-
-            while( src ) {
-
-                if( typeof dest !== typeof src ) {
-                    dest = _isArray(src) ? [] : ( _isObject(src) ? {} : src );
-                }
-
-                if( _isObject(src) ) {
-
-                    for( key in src ) {
-                        if( src[key] !== undefined ) {
-                            if( typeof dest[key] !== typeof src[key] ) {
-                                dest[key] = _merge(undefined, src[key]);
-                            } else if( _isArray(dest[key]) ) {
-                                [].push.apply(dest[key], src[key]);
-                            } else if( _isObject(dest[key]) ) {
-                                dest[key] = _merge(dest[key], src[key]);
-                            } else {
-                                dest[key] = src[key];
-                            }
-                        }
+                        dest[key] = src[key];
                     }
                 }
-                src = arrayShift.call(arguments);
-            }
-
-            return dest;
-        }
-
-        function _extend () {
-          var dest = arrayShift.call(arguments),
-              src = arrayShift.call(arguments),
-              key;
-
-          while( src ) {
-            for( key in src) {
-              dest[key] = src[key];
-            }
-            src = arrayShift.call(arguments);
-          }
-
-          return dest;
-        }
-
-        function _copy (o) {
-            return _merge(undefined, o);
-        }
-
-
-    function joinPath () {
-        var path = (arguments[0] || '').replace(/\/$/, '');
-
-        for( var i = 1, len = arguments.length - 1 ; i < len ; i++ ) {
-            path += '/' + arguments[i].replace(/^\/|\/$/, '');
-        }
-        if( len ) {
-            path += arguments[len] ? ( '/' + arguments[len].replace(/^\//, '') ) : '';
-        }
-
-        return path;
-    }
-
-    function _proccessPipe (pipe, args) {
-        var result = pipe[0].apply(null, args);
-
-        for( var i = 1, len = pipe.length; i < len; i++ ) {
-            result = pipe[i](result);
-        }
-
-        return result;
-    }
-
-    function _addToPipe (pipe, args) {
-        for( var i = 0, len = args.length; i < len; i++ ) {
-            if( !_isFunction(args[i]) ) {
-                throw 'only Functions are allowed as pipe arguments';
-            } else {
-                pipe.push(args[i]);
             }
         }
+        src = arrayShift.call(arguments);
     }
 
-    function _eachInList( list, iteratee, thisArg ) {
-        for( var i = 0, len = list.length; i < len ; i++ ) {
-            iteratee.apply(thisArg, [ list[i], i ]);
-        }
+    return dest;
+}
+
+module.exports = {
+  extend: require('./extend'),
+  merge: _merge,
+  copy: function (o) {
+      return _merge(undefined, o);
+  }
+};
+
+},{"./extend":1,"./kit-type":3}],3:[function(require,module,exports){
+'use strict';
+
+function _isType (type) {
+    return function (o) {
+        return (typeof o === type);
+    };
+}
+
+function _instanceOf (_constructor) {
+    return function (o) {
+        return ( o instanceof _constructor );
+    };
+}
+
+module.exports = {
+  isType: function (type, value) {
+    if( value === undefined ) {
+      return _isType(type);
     }
-
-    function _eachInObject( o, iteratee, thisArg ) {
-        for( var key in o ) {
-            iteratee.call(thisArg, [o[key], key]);
-        }
+    return _isType(type)(value);
+  },
+  instanceOf: function (Proto, value) {
+    if( value === undefined ) {
+      return _instanceOf(Proto);
     }
+    return _instanceOf(Proto)(value);
+  },
+  isObject: _isType('object'),
+	isFunction: _isType('function'),
+	isString: _isType('string'),
+	isNumber: _isType('number'),
+	isArray: Array.isArray || _instanceOf(Array),
+	isDate: _instanceOf(Date),
+	isRegExp: _instanceOf(RegExp),
+	isElement: function(o) {
+    return o && o.nodeType === 1;
+  },
+  isUndefined: function (value) {
+    return value === undefined;
+  }
+};
 
-    function each (o, iteratee, thisArg) {
-        if( _isArray(o) ) {
-            _eachInList(o, iteratee, thisArg);
-        } else if( _isObject(o) ) {
-            _eachInObject(o, iteratee, thisArg);
-        }
-    }
+},{}],4:[function(require,module,exports){
 
-    function indexOf (list, comparator) {
-
-        if( _isFunction(comparator) ) {
-            for( var i = 0, len = list.length; i < len; i++ ) {
-                if( comparator(list[i]) ) {
-                    return i;
-                }
-            }
-        } else return list.indexOf(comparator);
-
-        return -1;
-    }
-
-    function remove (list, comparator) {
-
-        var i, len;
-
-        if( _isFunction(comparator) ) {
-            for( i = 0, len = list.length; i < len; i++ ) {
-                if( comparator(list[i]) ) {
-                    list.splice(i, 1);
-                    i--;
-                }
-            }
-        } else {
-            for( i = 0, len = list.length; i < len; i++ ) {
-                if( list[i] === comparator ) {
-                    list.splice(i, 1);
-                    i--;
-                }
-            }
-        }
-    }
-
-    function matchAll (o, filters) {
-        for( var key in filters ) {
-            if( o[key] !== filters[key] ) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    function matchAny (o, filters) {
-        for( var key in filters ) {
-            if( o[key] === filters[key] ) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function find (list, filters) {
-        for( var i = 0, len = list.length ; i < len ; i++ ) {
-            if( matchAll(list[i], filters) ) {
-                return list[i];
-            }
-        }
-
-        return false;
-    }
-
-    function filter (list, filters) {
-        var newList = [];
-
-        for( var i = 0, len = list.length ; i < len ; i++ ) {
-            if( matchAll(list[i], filters) ) {
-                newList.push(list[i]);
-            }
-        }
-
-        return newList;
-    }
-
-    var _Funcs = {
-
-			// Type Functions
-				isType: _isType,
-				isObject: _isObject,
-				isFunction: _isFunction,
-				isString: _isString,
-				isNumber: _isNumber,
-				isArray: _isArray,
-				isDate: _isDate,
-				isRegExp: _isRegExp,
-				isElement: _isElement,
-
-				key: _key,
-    		keys: Object.keys,
-
-        extend: _extend,
-    		merge: _merge,
-        copy: _copy,
-
-        matchAll: matchAll,
-        matchAny: matchAny,
-        find: find,
-        filter: filter,
-
-        joinPath: joinPath,
-
-        each: each,
-        indexOf: indexOf,
-        remove: remove,
-
-        pipe: function () {
-            var pipe = [];
-
-            _addToPipe(pipe, arguments);
-
-            var pipeFn = function () {
-                return _proccessPipe(pipe, arguments);
-            };
-
-            pipeFn.pipe = function () {
-                _addToPipe(pipe, arguments);
-                return pipeFn;
-            };
-
-            return pipeFn;
-        },
-        chain: function (value) {
-            return new Chain(value);
-        }
-		};
-
-    function Chain (value) {
-        this.value = value;
-    }
-
-    _eachInList(['key', 'keys', 'each', 'indexOf', 'remove'], function (nameFn) {
-        Chain.prototype[nameFn] = function () {
-            [].unshift.call(arguments, this.value);
-            _[nameFn].apply(null, arguments);
-        };
+function stepResult (step, value, type) {
+  if( value && value.then ) {
+    value.then(function (result) {
+      step.deferred.resolve(result);
+    }, function (reason) {
+      step.deferred.reject(reason);
     });
-
-    function _ (value) {
-        return new Chain(value);
-    }
-
-    _extend(_, _Funcs);
-
-	return _;
-
-});
-
-if( !document.querySelector('[data-jengine-mode=sandbox]') ) {
-
-  fn.globalize();
-
-  if( !this._ ) {
-    this._ = this.$utils;
+  } else {
+    step.deferred[type](value);
   }
 }
+
+function processQueue(promise) {
+  if( promise.$$fulfilled === undefined ) {
+    return;
+  }
+
+  var len = promise.$$queue.length,
+      step = promise.$$queue.shift(),
+      type = promise.$$fulfilled ? 'resolve' : 'reject',
+      uncough = !promise.$$fulfilled && promise.$$uncought++;
+
+  while( step ) {
+
+    if( step[type] ) {
+      uncough = false;
+
+      try {
+        stepResult(step, step[type](promise.$$value), 'resolve');
+      } catch (reason) {
+        stepResult(step, reason, 'reject');
+      }
+
+    } else {
+      stepResult(step, promise.$$value, type);
+    }
+
+    step = promise.$$queue.shift();
+  }
+
+  if( uncough ) {
+    setTimeout(function () {
+      if( promise.$$uncough === uncough ) {
+        throw new Error('Uncaught (in promise)');
+      }
+    }, 0);
+  }
+}
+
+function Promise (executor) {
+  if( !( executor instanceof Function ) ) {
+    throw new TypeError('Promise resolver undefined is not a function');
+  }
+
+  var p = this;
+  this.$$queue = [];
+  this.$$uncough = 0;
+
+  executor(function (result) {
+    p.$$fulfilled = true;
+    p.$$value = result;
+    processQueue(p);
+  }, function (reason) {
+    p.$$fulfilled = false;
+    p.$$value = reason;
+    processQueue(p);
+  });
+}
+
+Promise.prototype.then = function (onFulfilled, onRejected) {
+  var _this = this,
+      _promise = new Promise(function (resolve, reject) {
+        _this.$$queue.push({ resolve: onFulfilled, reject: onRejected, deferred: { resolve: resolve, reject: reject } });
+      });
+
+  processQueue(this);
+
+  return _promise;
+};
+
+Promise.prototype.catch = function (onRejected) {
+  return this.then(undefined, onRejected);
+};
+
+Promise.all = function (iterable) {
+  return new Promise(function (resolve, reject) {
+    var pending = iterable.length,
+        results = [];
+    iterable.forEach(function (_promise, i) {
+
+      ( _promise.then ? _promise : Promise.resolve(_promise) ).then(function (result) {
+        results[i] = result;
+        if( --pending === 0 ) {
+          resolve(results);
+        }
+      }, function (reason) {
+        if( pending !== -1 ) {
+          pending === -1;
+          reject(reason);
+        }
+      });
+    });
+  });
+};
+
+Promise.race = function (iterable) {
+  return new Promise(function (resolve, reject) {
+    var done = false;
+
+    iterable.forEach(function (_promise, i) {
+      if( done ) {
+        return;
+      }
+      ( _promise.then ? _promise : Promise.resolve(_promise) ).then(function (result) {
+        if( !done ) {
+          done = true;
+          resolve(result);
+        }
+      }, function (reason) {
+        if( !done ) {
+          done = true;
+          reject(reason);
+        }
+      });
+    });
+  });
+};
+
+Promise.resolve = function (result) {
+  return new Promise(function (resolve, reject) { resolve(result); });
+};
+
+Promise.reject = function (reason) {
+  return new Promise(function (resolve, reject) { reject(reason); });
+};
+
+module.exports = Promise;
+
+},{}],5:[function(require,module,exports){
+(function (global){
+
+module.exports = require('./promise-qizer')( global.Promise || require('./promise-polyfill') );
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./promise-polyfill":4,"./promise-qizer":6}],6:[function(require,module,exports){
+
+module.exports = function (Promise) {
+
+  function q (executor) {
+    return new Promise(executor);
+  }
+
+  ['resolve', 'reject', 'all', 'race'].forEach(function (fName) {
+    q[fName] = Promise[fName];
+  });
+
+  q.when = function (p) { return ( p && p.then ) ? p : Promise.resolve(p); };
+
+  return q;
+
+};
+
+},{}],7:[function(require,module,exports){
+(function (global){
+
+if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['$http'], function () {
+      return require('./http');
+    });
+} else {
+    // Browser globals
+    global.$http = require('./http');
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./http":8}],8:[function(require,module,exports){
+
+// factory http
+
+var $q = require('promise-q'),
+    _ = require('nitro-tools/lib/kit-extend');
+
+function resolveFunctions (o, thisArg, args) {
+  for( var key in o ) {
+    if( o[key] instanceof Function ) {
+      o[key] = o[key].apply(thisArg, args || []);
+    } else if( typeof o[key] === 'string' ) {
+      o[key] = resolveFunctions(o[key], thisArg, args);
+    }
+  }
+  return o;
+}
+
+function headerToTitleSlug(text) {
+  console.log('headerToTitleSlug', text);
+  var key = text.replace(/([a-z])([A-Z])/g, function (match, lower, upper) {
+      return lower + '-' + upper;
+  });
+  key = key[0].toUpperCase() + key.substr(1);
+
+  return key;
+}
+
+function headerToCamelCase(text) {
+  var key = text[0].toLowerCase() + text.substr(1);
+  return key.replace(/([a-z])-([A-Z])/g, function (match, lower, upper) {
+    return lower + upper;
+  });
+}
+
+var RE_contentType = /([^\/]+)\/([^+]+\+)?(.*)/;
+function parseContentType(contentType, text, xml) {
+  var matches = contentType && contentType.match(RE_contentType);
+  return matches && ( matches[3] === 'json' ? JSON.parse(text) : ( matches[3] === 'xml' ? xml : text ) );
+}
+
+function _getHeaders (request) {
+  var headers = {};
+  request.getAllResponseHeaders().replace(/\s*([^\:]+)\s*\:\s*([^\;\n]+)/g, function (match, key, value) {
+      headers[headerToCamelCase(key)] = value.trim();
+  });
+
+  return headers;
+}
+
+function http (url, config) {
+
+  if( config === undefined ) {
+    http.url(url);
+  }
+
+  config = resolveFunctions( _.copy(config || {}) );
+  config.headers = config.headers || {};
+  config.url = url;
+
+  return $q(function (resolve, reject) {
+
+    var request = null;
+
+    try { // Firefox, Opera 8.0+, Safari
+        request = new XMLHttpRequest();
+    } catch (e) { // Internet Explorer
+        try { request = new ActiveXObject('Msxml2.XMLHTTP'); }  // jshint ignore:line
+        catch (er) { request = new ActiveXObject('Microsoft.XMLHTTP'); }  // jshint ignore:line
+    }
+    if( request === null ) { throw 'Browser does not support HTTP Request'; }
+
+    if( config.params ) {
+      var i = 0;
+      for( var param in config.params ) {
+        url += ( i++ ? '&' : ( /\?/.test(url) ? '&' : '?' ) ) + param + '=' + encodeURIComponent(config.params[param]);
+      }
+    }
+
+    request.open( ( config.method || 'get').toUpperCase(), url );
+
+    if( config.withCredentials ) {
+      request.withCredentials = true;
+    }
+
+    for( var key in config.headers ) {
+        request.setRequestHeader( headerToTitleSlug(key), config.headers[key] );
+    }
+
+    request.onreadystatechange = function(){
+      if( request.readyState === 'complete' || request.readyState === 4 ) {
+        var response = {
+          config: request.config,
+          data: parseContentType(request.getResponseHeader('content-type'), request.responseText, request.responseXML),
+          status: request.status,
+          headers: (function () {
+            var headersCache;
+            return function () {
+              if( !headersCache ) {
+                headersCache = _getHeaders(request);
+              }
+              return headersCache;
+            };
+          })(),
+          xhr: request
+        };
+        if( request.status >= 200 && request.status < 300 ) {
+          resolve( response );
+        } else {
+          reject( response );
+        }
+      }
+    };
+
+    request.config = config;
+
+    if( typeof config.data !== 'string'  ) {}
+
+    if( config.contentType ) {
+      request.setRequestHeader( 'Content-Type', config.contentType );
+
+      if( config.contentType === 'application/json' && typeof config.data !== 'string' ) {
+        config.data = JSON.stringify(config.data);
+      }
+
+    } else {
+      if( typeof config.data === 'string' ) {
+        config.contentType = 'text/html';
+      } else {
+        config.contentType = 'application/json';
+        config.data = JSON.stringify(config.data);
+      }
+    }
+
+    request.send( config.data );
+
+  });
+}
+
+http.noCache = function (url, config) {
+  url += ( /\?/.test(url) ? '&' : '?' ) + 't=' + new Date().getTime();
+  return http(url, config);
+};
+
+http.plainResponse = function (response) {
+  return {
+    config: response.config,
+    data: response.data,
+    status: response.status,
+    headers: response.headers()
+  };
+};
+
+['get', 'delete'].forEach(function (method) {
+  http[method] = function (url, config) {
+    config = _.copy(config || {});
+    config.method = method;
+    return http(config);
+  };
+});
+
+['post', 'put'].forEach(function (method) {
+  http[method] = function (url, data, config) {
+    config = _.copy(config || {});
+    config.data = data || {};
+    config.method = method;
+    return http(config);
+  };
+});
+
+http.url = function (url) {
+  var urlFn = function () {
+    return http.get.apply(null, [url].concat( [].slice.call(arguments) ) );
+  };
+  ['get', 'post', 'put', 'delete'].forEach(function (method) {
+    return http[method].apply(null, [url].concat( [].slice.call(arguments) ) );
+  });
+};
+
+module.exports = http;
+
+},{"nitro-tools/lib/kit-extend":2,"promise-q":5}],9:[function(require,module,exports){
+(function (global){
+
+if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['$q'], function () {
+      return require('./q');
+    });
+} else {
+    // Browser globals
+    global.$q = require('./q');
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./q":11}],10:[function(require,module,exports){
+arguments[4][4][0].apply(exports,arguments)
+},{"dup":4}],11:[function(require,module,exports){
+(function (global){
+
+module.exports = require('./qizer')( global.Promise || require('./promise-polyfill') );
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./promise-polyfill":10,"./qizer":12}],12:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}]},{},[7,9]);
